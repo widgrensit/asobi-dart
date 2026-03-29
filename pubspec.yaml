@@ -1,0 +1,11 @@
+name: asobi
+description: Dart client SDK for the Asobi game backend.
+version: 0.1.0
+repository: https://github.com/widgrensit/asobi-dart
+
+environment:
+  sdk: ^3.0.0
+
+dependencies:
+  http: ^1.2.0
+  web_socket_channel: ^3.0.0

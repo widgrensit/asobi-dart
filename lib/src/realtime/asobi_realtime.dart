@@ -1,0 +1,146 @@
+import 'dart:async';
+import 'dart:convert';
+import 'package:web_socket_channel/web_socket_channel.dart';
+
+import '../asobi_client.dart';
+import '../http_client.dart';
+import '../models/realtime_models.dart';
+
+class AsobiRealtime {
+  final AsobiClient _client;
+  WebSocketChannel? _channel;
+  StreamSubscription? _subscription;
+  int _cidCounter = 0;
+  final Map<String, Completer<Map<String, dynamic>>> _pending = {};
+
+  bool get isConnected => _channel != null;
+
+  // Events
+  final StreamController<void> onConnected = StreamController.broadcast();
+  final StreamController<String> onDisconnected = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onMatchState = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onMatchStarted = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onMatchFinished = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onChatMessage = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onNotification = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onMatchmakerMatched = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onPresenceChanged = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onError = StreamController.broadcast();
+
+  AsobiRealtime(this._client);
+
+  Future<void> connect() async {
+    if (isConnected) return;
+
+    _channel = WebSocketChannel.connect(Uri.parse(_client.config.wsUrl));
+    await _channel!.ready;
+
+    _subscription = _channel!.stream.listen(
+      (data) => _handleMessage(data as String),
+      onDone: () {
+        _channel = null;
+        onDisconnected.add('closed');
+      },
+      onError: (error) {
+        onError.add({'error': error.toString()});
+      },
+    );
+
+    await _send('session.connect', {'token': _client.sessionToken});
+  }
+
+  Future<void> joinMatch(String matchId) =>
+      _send('match.join', {'match_id': matchId});
+
+  void sendMatchInput(Map<String, dynamic> input) =>
+      _sendFireAndForget('match.input', input);
+
+  Future<void> leaveMatch() => _send('match.leave', {});
+
+  Future<void> addToMatchmaker({String mode = 'default'}) =>
+      _send('matchmaker.add', {'mode': mode});
+
+  Future<void> removeFromMatchmaker(String ticketId) =>
+      _send('matchmaker.remove', {'ticket_id': ticketId});
+
+  Future<void> joinChat(String channelId) =>
+      _send('chat.join', {'channel_id': channelId});
+
+  void sendChatMessage(String channelId, String content) =>
+      _sendFireAndForget('chat.send', {'channel_id': channelId, 'content': content});
+
+  Future<void> leaveChat(String channelId) =>
+      _send('chat.leave', {'channel_id': channelId});
+
+  Future<void> updatePresence({String status = 'online'}) =>
+      _send('presence.update', {'status': status});
+
+  void sendHeartbeat() => _sendFireAndForget('session.heartbeat', {});
+
+  Future<void> disconnect() async {
+    await _subscription?.cancel();
+    await _channel?.sink.close();
+    _channel = null;
+    for (final completer in _pending.values) {
+      completer.completeError(AsobiException(-1, 'Disconnected'));
+    }
+    _pending.clear();
+  }
+
+  Future<Map<String, dynamic>> _send(String type, Map<String, dynamic> payload) {
+    final cid = (++_cidCounter).toString();
+    final completer = Completer<Map<String, dynamic>>();
+    _pending[cid] = completer;
+
+    final msg = jsonEncode({'type': type, 'payload': payload, 'cid': cid});
+    _channel!.sink.add(msg);
+
+    return completer.future.timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        _pending.remove(cid);
+        throw TimeoutException('WebSocket request "$type" timed out');
+      },
+    );
+  }
+
+  void _sendFireAndForget(String type, Map<String, dynamic> payload) {
+    final msg = jsonEncode({'type': type, 'payload': payload});
+    _channel!.sink.add(msg);
+  }
+
+  void _handleMessage(String raw) {
+    final json = jsonDecode(raw) as Map<String, dynamic>;
+    final msg = WsMessage.fromJson(json);
+
+    if (msg.cid != null && _pending.containsKey(msg.cid)) {
+      final completer = _pending.remove(msg.cid)!;
+      if (msg.type == 'error') {
+        completer.completeError(AsobiException(-1, msg.payload['message'] as String? ?? 'Unknown error'));
+      } else {
+        completer.complete(msg.payload);
+      }
+    }
+
+    switch (msg.type) {
+      case 'session.connected':
+        onConnected.add(null);
+      case 'match.state':
+        onMatchState.add(msg.payload);
+      case 'match.started':
+        onMatchStarted.add(msg.payload);
+      case 'match.finished':
+        onMatchFinished.add(msg.payload);
+      case 'chat.message':
+        onChatMessage.add(msg.payload);
+      case 'notification.new':
+        onNotification.add(msg.payload);
+      case 'matchmaker.matched':
+        onMatchmakerMatched.add(msg.payload);
+      case 'presence.changed':
+        onPresenceChanged.add(msg.payload);
+      case 'error':
+        onError.add(msg.payload);
+    }
+  }
+}
