@@ -3,21 +3,21 @@ class LeaderboardEntry {
   final String playerId;
   final int score;
   final int subScore;
-  final String updatedAt;
+  final String? updatedAt;
 
   LeaderboardEntry({
     required this.leaderboardId,
     required this.playerId,
     required this.score,
     required this.subScore,
-    required this.updatedAt,
+    this.updatedAt,
   });
 
   factory LeaderboardEntry.fromJson(Map<String, dynamic> json) => LeaderboardEntry(
-        leaderboardId: json['leaderboard_id'] as String,
-        playerId: json['player_id'] as String,
-        score: json['score'] as int,
-        subScore: json['sub_score'] as int,
-        updatedAt: json['updated_at'] as String,
+        leaderboardId: json['leaderboard_id'] as String? ?? '',
+        playerId: json['player_id'] as String? ?? '',
+        score: (json['score'] as num?)?.toInt() ?? 0,
+        subScore: (json['sub_score'] as num?)?.toInt() ?? 0,
+        updatedAt: json['updated_at'] as String?,
       );
 }
