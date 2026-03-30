@@ -1,16 +1,13 @@
-# asobi-dart
+# asobi
 
 Dart client SDK for the [Asobi](https://github.com/widgrensit/asobi) game backend. Works with Flutter, Flame, and standalone Dart applications.
 
+Pure Dart — no Flutter dependency. Minimal footprint (only `http` + `web_socket_channel`).
+
 ## Installation
 
-Add to your `pubspec.yaml`:
-
-```yaml
-dependencies:
-  asobi:
-    git:
-      url: https://github.com/widgrensit/asobi-dart.git
+```bash
+dart pub add asobi
 ```
 
 ## Quick Start
@@ -39,18 +36,23 @@ await client.realtime.addToMatchmaker(mode: 'arena');
 
 ## Features
 
-- **Auth** - Register, login, token refresh
-- **Players** - Profiles, updates
-- **Matchmaker** - Queue, status, cancel
-- **Matches** - List, details
-- **Leaderboards** - Top scores, around player, submit
-- **Economy** - Wallets, store, purchases
-- **Inventory** - Items, consume
-- **Social** - Friends, groups, chat history
-- **Tournaments** - List, join
-- **Notifications** - List, read, delete
-- **Storage** - Cloud saves, generic key-value
-- **Realtime** - WebSocket for matches, chat, presence, matchmaking
+| Feature | REST | WebSocket |
+|---------|------|-----------|
+| Auth | Register, login, token refresh | - |
+| Players | Profiles, updates | - |
+| Matchmaker | Queue, status, cancel | Real-time match found |
+| Matches | List, details | State sync, input, events |
+| Leaderboards | Top scores, around player, submit | - |
+| Economy | Wallets, store, purchases | - |
+| Inventory | Items, consume | - |
+| Social | Friends, groups, chat history | Chat messages, presence |
+| Tournaments | List, join | - |
+| Notifications | List, read, delete | Real-time push |
+| Storage | Cloud saves, key-value | - |
+
+## Flame Integration
+
+For Flame games, use [flame_asobi](https://github.com/widgrensit/flame_asobi) which provides Flame-native components and mixins on top of this SDK.
 
 ## License
 
