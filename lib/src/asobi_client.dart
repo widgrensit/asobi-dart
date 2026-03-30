@@ -10,6 +10,7 @@ import 'api/social.dart';
 import 'api/tournaments.dart';
 import 'api/notifications.dart';
 import 'api/storage.dart';
+import 'api/iap.dart';
 import 'realtime/asobi_realtime.dart';
 
 class AsobiClient {
@@ -27,6 +28,7 @@ class AsobiClient {
   late final AsobiTournaments tournaments;
   late final AsobiNotifications notifications;
   late final AsobiStorage storage;
+  late final AsobiIAP iap;
   late final AsobiRealtime realtime;
 
   String? _sessionToken;
@@ -55,6 +57,7 @@ class AsobiClient {
     tournaments = AsobiTournaments(this);
     notifications = AsobiNotifications(this);
     storage = AsobiStorage(this);
+    iap = AsobiIAP(this);
     realtime = AsobiRealtime(this);
   }
 

@@ -35,9 +35,11 @@ class AsobiHttpClient {
     return _handleResponse(response);
   }
 
-  Future<Map<String, dynamic>> delete(String path) async {
+  Future<Map<String, dynamic>> delete(String path,
+      {Map<String, dynamic>? body}) async {
     final uri = _buildUri(path);
-    final response = await http.delete(uri, headers: _headers);
+    final response = await http.delete(uri,
+        headers: _headers, body: body != null ? jsonEncode(body) : null);
     return _handleResponse(response);
   }
 
