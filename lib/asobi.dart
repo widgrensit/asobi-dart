@@ -1,5 +1,3 @@
-library asobi;
-
 export 'src/asobi_client.dart';
 export 'src/http_client.dart' show AsobiException;
 export 'src/api/auth.dart';
