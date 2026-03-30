@@ -135,7 +135,7 @@ class AsobiRealtime {
         onChatMessage.add(msg.payload);
       case 'notification.new':
         onNotification.add(msg.payload);
-      case 'matchmaker.matched':
+      case 'match.matched':
         onMatchmakerMatched.add(msg.payload);
       case 'presence.changed':
         onPresenceChanged.add(msg.payload);
