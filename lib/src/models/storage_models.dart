@@ -1,7 +1,7 @@
 class CloudSave {
   final String playerId;
   final String slot;
-  final String data;
+  final Map<String, dynamic> data;
   final int version;
   final String updatedAt;
 
@@ -16,7 +16,7 @@ class CloudSave {
   factory CloudSave.fromJson(Map<String, dynamic> json) => CloudSave(
         playerId: json['player_id'] as String,
         slot: json['slot'] as String,
-        data: json['data'] as String,
+        data: Map<String, dynamic>.from(json['data'] as Map),
         version: json['version'] as int,
         updatedAt: json['updated_at'] as String,
       );
@@ -40,7 +40,7 @@ class StorageObject {
   final String collection;
   final String key;
   final String playerId;
-  final String value;
+  final Map<String, dynamic> value;
   final int version;
   final String readPerm;
   final String writePerm;
@@ -61,7 +61,7 @@ class StorageObject {
         collection: json['collection'] as String,
         key: json['key'] as String,
         playerId: json['player_id'] as String,
-        value: json['value'] as String,
+        value: Map<String, dynamic>.from(json['value'] as Map),
         version: json['version'] as int,
         readPerm: json['read_perm'] as String,
         writePerm: json['write_perm'] as String,

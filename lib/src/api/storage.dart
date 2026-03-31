@@ -16,7 +16,7 @@ class AsobiStorage {
     return CloudSave.fromJson(resp);
   }
 
-  Future<CloudSave> putSave(String slot, String data, {int? version}) async {
+  Future<CloudSave> putSave(String slot, Map<String, dynamic> data, {int? version}) async {
     final body = <String, dynamic>{'data': data};
     if (version != null) body['version'] = version;
     final resp = await _client.http.put('/api/v1/saves/$slot', body: body);
@@ -37,7 +37,7 @@ class AsobiStorage {
     return StorageObject.fromJson(resp);
   }
 
-  Future<StorageObject> putStorage(String collection, String key, String value,
+  Future<StorageObject> putStorage(String collection, String key, Map<String, dynamic> value,
       {String readPerm = 'owner', String writePerm = 'owner'}) async {
     final resp = await _client.http.put('/api/v1/storage/$collection/$key', body: {
       'value': value,
