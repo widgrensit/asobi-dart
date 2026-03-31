@@ -7,7 +7,7 @@ class AsobiHttpClient {
 
   AsobiHttpClient(this.baseUrl);
 
-  Map<String, String> get _headers => {
+  Map<String, String> get headers => {
         'Content-Type': 'application/json',
         if (sessionToken != null) 'Authorization': 'Bearer $sessionToken',
       };
@@ -15,32 +15,32 @@ class AsobiHttpClient {
   Future<Map<String, dynamic>> get(String path,
       {Map<String, String>? query}) async {
     final uri = _buildUri(path, query);
-    final response = await http.get(uri, headers: _headers);
-    return _handleResponse(response);
+    final response = await http.get(uri, headers: headers);
+    return handleResponse(response);
   }
 
   Future<Map<String, dynamic>> post(String path,
       {Map<String, dynamic>? body}) async {
     final uri = _buildUri(path);
     final response = await http.post(uri,
-        headers: _headers, body: body != null ? jsonEncode(body) : null);
-    return _handleResponse(response);
+        headers: headers, body: body != null ? jsonEncode(body) : null);
+    return handleResponse(response);
   }
 
   Future<Map<String, dynamic>> put(String path,
       {Map<String, dynamic>? body}) async {
     final uri = _buildUri(path);
     final response = await http.put(uri,
-        headers: _headers, body: body != null ? jsonEncode(body) : null);
-    return _handleResponse(response);
+        headers: headers, body: body != null ? jsonEncode(body) : null);
+    return handleResponse(response);
   }
 
   Future<Map<String, dynamic>> delete(String path,
-      {Map<String, dynamic>? body}) async {
-    final uri = _buildUri(path);
+      {Map<String, dynamic>? body, Map<String, String>? query}) async {
+    final uri = _buildUri(path, query);
     final response = await http.delete(uri,
-        headers: _headers, body: body != null ? jsonEncode(body) : null);
-    return _handleResponse(response);
+        headers: headers, body: body != null ? jsonEncode(body) : null);
+    return handleResponse(response);
   }
 
   Uri _buildUri(String path, [Map<String, String>? query]) {
@@ -51,7 +51,7 @@ class AsobiHttpClient {
     return uri;
   }
 
-  Map<String, dynamic> _handleResponse(http.Response response) {
+  Map<String, dynamic> handleResponse(http.Response response) {
     final body = response.body.isNotEmpty
         ? jsonDecode(response.body) as Map<String, dynamic>
         : <String, dynamic>{};

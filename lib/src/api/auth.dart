@@ -49,7 +49,7 @@ class AsobiAuth {
   }
 
   Future<void> unlinkProvider(String provider) async {
-    await _client.http.delete('/api/v1/auth/unlink', body: {
+    await _client.http.delete('/api/v1/auth/unlink', query: {
       'provider': provider,
     });
   }
