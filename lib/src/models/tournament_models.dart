@@ -29,4 +29,15 @@ class Tournament {
         endAt: json['end_at'] as String,
         insertedAt: json['inserted_at'] as String,
       );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'leaderboard_id': leaderboardId,
+        'max_entries': maxEntries,
+        'status': status,
+        'start_at': startAt,
+        'end_at': endAt,
+        'inserted_at': insertedAt,
+      };
 }

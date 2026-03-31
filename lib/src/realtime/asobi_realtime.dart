@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../asobi_client.dart';
 import '../http_client.dart';
+import '../models/notification_models.dart';
 import '../models/realtime_models.dart';
+import '../models/social_models.dart';
 
 class AsobiRealtime {
   final AsobiClient _client;
@@ -13,23 +16,34 @@ class AsobiRealtime {
   int _cidCounter = 0;
   final Map<String, Completer<Map<String, dynamic>>> _pending = {};
 
+  bool _autoReconnect = true;
+  int _reconnectAttempts = 0;
+  static const int _maxReconnectAttempts = 10;
+  static const Duration _baseReconnectDelay = Duration(seconds: 1);
+  Timer? _reconnectTimer;
+
   bool get isConnected => _channel != null;
 
-  // Events
   final StreamController<void> onConnected = StreamController.broadcast();
   final StreamController<String> onDisconnected = StreamController.broadcast();
-  final StreamController<Map<String, dynamic>> onMatchState = StreamController.broadcast();
-  final StreamController<Map<String, dynamic>> onMatchStarted = StreamController.broadcast();
-  final StreamController<Map<String, dynamic>> onMatchFinished = StreamController.broadcast();
-  final StreamController<Map<String, dynamic>> onChatMessage = StreamController.broadcast();
-  final StreamController<Map<String, dynamic>> onNotification = StreamController.broadcast();
-  final StreamController<Map<String, dynamic>> onMatchmakerMatched = StreamController.broadcast();
-  final StreamController<Map<String, dynamic>> onPresenceChanged = StreamController.broadcast();
-  final StreamController<Map<String, dynamic>> onError = StreamController.broadcast();
+  final StreamController<MatchState> onMatchState = StreamController.broadcast();
+  final StreamController<MatchStarted> onMatchStarted = StreamController.broadcast();
+  final StreamController<MatchResult> onMatchFinished = StreamController.broadcast();
+  final StreamController<ChatMessage> onChatMessage = StreamController.broadcast();
+  final StreamController<Notification> onNotification = StreamController.broadcast();
+  final StreamController<MatchmakerMatch> onMatchmakerMatched = StreamController.broadcast();
+  final StreamController<PresenceEvent> onPresenceChanged = StreamController.broadcast();
+  final StreamController<RealtimeError> onError = StreamController.broadcast();
 
   AsobiRealtime(this._client);
 
-  Future<void> connect() async {
+  Future<void> connect({bool autoReconnect = true}) async {
+    _autoReconnect = autoReconnect;
+    _reconnectAttempts = 0;
+    await _connect();
+  }
+
+  Future<void> _connect() async {
     if (isConnected) return;
 
     _channel = WebSocketChannel.connect(Uri.parse(_client.config.wsUrl));
@@ -40,20 +54,44 @@ class AsobiRealtime {
       onDone: () {
         _channel = null;
         onDisconnected.add('closed');
+        _scheduleReconnect();
       },
       onError: (error) {
-        onError.add({'error': error.toString()});
+        onError.add(RealtimeError(message: error.toString()));
+        _channel = null;
+        _scheduleReconnect();
       },
     );
 
     await _send('session.connect', {'token': _client.sessionToken});
+    _reconnectAttempts = 0;
+  }
+
+  void _scheduleReconnect() {
+    if (!_autoReconnect) return;
+    if (_reconnectAttempts >= _maxReconnectAttempts) {
+      onError.add(RealtimeError(
+        message: 'Max reconnect attempts ($_maxReconnectAttempts) exceeded',
+      ));
+      return;
+    }
+
+    final delay = _baseReconnectDelay * pow(2, _reconnectAttempts);
+    _reconnectAttempts++;
+    _reconnectTimer = Timer(delay, () async {
+      try {
+        await _connect();
+      } catch (_) {
+        _scheduleReconnect();
+      }
+    });
   }
 
   Future<void> joinMatch(String matchId) =>
       _send('match.join', {'match_id': matchId});
 
-  void sendMatchInput(Map<String, dynamic> input) =>
-      _sendFireAndForget('match.input', input);
+  void sendMatchInput(MatchInput input) =>
+      _sendFireAndForget('match.input', input.toJson());
 
   Future<void> leaveMatch() => _send('match.leave', {});
 
@@ -78,6 +116,8 @@ class AsobiRealtime {
   void sendHeartbeat() => _sendFireAndForget('session.heartbeat', {});
 
   Future<void> disconnect() async {
+    _autoReconnect = false;
+    _reconnectTimer?.cancel();
     await _subscription?.cancel();
     await _channel?.sink.close();
     _channel = null;
@@ -126,21 +166,21 @@ class AsobiRealtime {
       case 'session.connected':
         onConnected.add(null);
       case 'match.state':
-        onMatchState.add(msg.payload);
+        onMatchState.add(MatchState.fromJson(msg.payload));
       case 'match.started':
-        onMatchStarted.add(msg.payload);
+        onMatchStarted.add(MatchStarted.fromJson(msg.payload));
       case 'match.finished':
-        onMatchFinished.add(msg.payload);
+        onMatchFinished.add(MatchResult.fromJson(msg.payload));
       case 'chat.message':
-        onChatMessage.add(msg.payload);
+        onChatMessage.add(ChatMessage.fromJson(msg.payload));
       case 'notification.new':
-        onNotification.add(msg.payload);
+        onNotification.add(Notification.fromJson(msg.payload));
       case 'match.matched':
-        onMatchmakerMatched.add(msg.payload);
+        onMatchmakerMatched.add(MatchmakerMatch.fromJson(msg.payload));
       case 'presence.changed':
-        onPresenceChanged.add(msg.payload);
+        onPresenceChanged.add(PresenceEvent.fromJson(msg.payload));
       case 'error':
-        onError.add(msg.payload);
+        onError.add(RealtimeError.fromJson(msg.payload));
     }
   }
 }

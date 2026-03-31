@@ -12,6 +12,13 @@ class IAPResult {
         orderId: json['order_id'] as String?,
         valid: json['valid'] as bool? ?? false,
       );
+
+  Map<String, dynamic> toJson() => {
+        if (productId != null) 'product_id': productId,
+        if (transactionId != null) 'transaction_id': transactionId,
+        if (orderId != null) 'order_id': orderId,
+        'valid': valid,
+      };
 }
 
 class OAuthResponse {
@@ -33,6 +40,13 @@ class OAuthResponse {
         username: json['username'] as String,
         created: json['created'] as bool? ?? false,
       );
+
+  Map<String, dynamic> toJson() => {
+        'player_id': playerId,
+        'session_token': sessionToken,
+        'username': username,
+        'created': created,
+      };
 }
 
 class LinkResponse {
@@ -47,4 +61,10 @@ class LinkResponse {
         providerUid: json['provider_uid'] as String,
         linked: json['linked'] as bool? ?? false,
       );
+
+  Map<String, dynamic> toJson() => {
+        'provider': provider,
+        'provider_uid': providerUid,
+        'linked': linked,
+      };
 }

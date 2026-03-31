@@ -11,7 +11,7 @@ class AsobiLeaderboards {
       query: {'limit': limit.toString()},
     );
     final entries = resp['entries'] as List<dynamic>;
-    return entries.map((e) => LeaderboardEntry.fromJson(e as Map<String, dynamic>)).toList();
+    return entries.map((entry) => LeaderboardEntry.fromJson(entry as Map<String, dynamic>)).toList();
   }
 
   Future<List<LeaderboardEntry>> getAroundPlayer(
@@ -21,7 +21,7 @@ class AsobiLeaderboards {
       query: {'range': range.toString()},
     );
     final entries = resp['entries'] as List<dynamic>;
-    return entries.map((e) => LeaderboardEntry.fromJson(e as Map<String, dynamic>)).toList();
+    return entries.map((entry) => LeaderboardEntry.fromJson(entry as Map<String, dynamic>)).toList();
   }
 
   Future<List<LeaderboardEntry>> getAroundSelf(String leaderboardId, {int range = 5}) {

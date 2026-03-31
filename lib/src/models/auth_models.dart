@@ -10,6 +10,12 @@ class AuthResponse {
         sessionToken: json['session_token'] as String,
         username: json['username'] as String,
       );
+
+  Map<String, dynamic> toJson() => {
+        'player_id': playerId,
+        'session_token': sessionToken,
+        'username': username,
+      };
 }
 
 class RefreshResponse {
@@ -22,4 +28,9 @@ class RefreshResponse {
         playerId: json['player_id'] as String,
         sessionToken: json['session_token'] as String,
       );
+
+  Map<String, dynamic> toJson() => {
+        'player_id': playerId,
+        'session_token': sessionToken,
+      };
 }

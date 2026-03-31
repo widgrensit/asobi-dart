@@ -26,4 +26,14 @@ class Player {
         insertedAt: json['inserted_at'] as String,
         updatedAt: json['updated_at'] as String,
       );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'username': username,
+        'display_name': displayName,
+        if (avatarUrl != null) 'avatar_url': avatarUrl,
+        if (bannedAt != null) 'banned_at': bannedAt,
+        'inserted_at': insertedAt,
+        'updated_at': updatedAt,
+      };
 }

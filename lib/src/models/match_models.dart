@@ -23,6 +23,15 @@ class MatchRecord {
         finishedAt: json['finished_at'] as String?,
         insertedAt: json['inserted_at'] as String,
       );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'mode': mode,
+        'status': status,
+        if (startedAt != null) 'started_at': startedAt,
+        if (finishedAt != null) 'finished_at': finishedAt,
+        'inserted_at': insertedAt,
+      };
 }
 
 class MatchmakerTicket {
@@ -35,4 +44,9 @@ class MatchmakerTicket {
         ticketId: json['ticket_id'] as String,
         status: json['status'] as String,
       );
+
+  Map<String, dynamic> toJson() => {
+        'ticket_id': ticketId,
+        'status': status,
+      };
 }

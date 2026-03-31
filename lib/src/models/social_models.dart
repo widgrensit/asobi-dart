@@ -23,6 +23,15 @@ class Friendship {
         insertedAt: json['inserted_at'] as String,
         updatedAt: json['updated_at'] as String,
       );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'player_id': playerId,
+        'friend_id': friendId,
+        'status': status,
+        'inserted_at': insertedAt,
+        'updated_at': updatedAt,
+      };
 }
 
 class Group {
@@ -56,6 +65,17 @@ class Group {
         insertedAt: json['inserted_at'] as String,
         updatedAt: json['updated_at'] as String,
       );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        if (description != null) 'description': description,
+        'max_members': maxMembers,
+        'open': open,
+        'creator_id': creatorId,
+        'inserted_at': insertedAt,
+        'updated_at': updatedAt,
+      };
 }
 
 class ChatMessage {
@@ -83,4 +103,13 @@ class ChatMessage {
         content: json['content'] as String,
         sentAt: json['sent_at'] as String,
       );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'channel_type': channelType,
+        'channel_id': channelId,
+        'sender_id': senderId,
+        'content': content,
+        'sent_at': sentAt,
+      };
 }

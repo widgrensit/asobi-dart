@@ -8,7 +8,7 @@ class AsobiTournaments {
   Future<List<Tournament>> list() async {
     final resp = await _client.http.get('/api/v1/tournaments');
     final tournaments = resp['tournaments'] as List<dynamic>;
-    return tournaments.map((t) => Tournament.fromJson(t as Map<String, dynamic>)).toList();
+    return tournaments.map((tournament) => Tournament.fromJson(tournament as Map<String, dynamic>)).toList();
   }
 
   Future<Tournament> get(String tournamentId) async {
