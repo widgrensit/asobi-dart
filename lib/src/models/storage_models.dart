@@ -20,6 +20,14 @@ class CloudSave {
         version: json['version'] as int,
         updatedAt: json['updated_at'] as String,
       );
+
+  Map<String, dynamic> toJson() => {
+        'player_id': playerId,
+        'slot': slot,
+        'data': data,
+        'version': version,
+        'updated_at': updatedAt,
+      };
 }
 
 class CloudSaveSummary {
@@ -34,6 +42,12 @@ class CloudSaveSummary {
         version: json['version'] as int,
         updatedAt: json['updated_at'] as String,
       );
+
+  Map<String, dynamic> toJson() => {
+        'slot': slot,
+        'version': version,
+        'updated_at': updatedAt,
+      };
 }
 
 class StorageObject {
@@ -67,4 +81,15 @@ class StorageObject {
         writePerm: json['write_perm'] as String,
         updatedAt: json['updated_at'] as String,
       );
+
+  Map<String, dynamic> toJson() => {
+        'collection': collection,
+        'key': key,
+        'player_id': playerId,
+        'value': value,
+        'version': version,
+        'read_perm': readPerm,
+        'write_perm': writePerm,
+        'updated_at': updatedAt,
+      };
 }

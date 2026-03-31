@@ -10,7 +10,7 @@ class AsobiSocial {
     if (status != null) query['status'] = status;
     final resp = await _client.http.get('/api/v1/friends', query: query);
     final friends = resp['friends'] as List<dynamic>;
-    return friends.map((f) => Friendship.fromJson(f as Map<String, dynamic>)).toList();
+    return friends.map((friendship) => Friendship.fromJson(friendship as Map<String, dynamic>)).toList();
   }
 
   Future<Friendship> addFriend(String friendId) async {
@@ -58,6 +58,6 @@ class AsobiSocial {
   Future<List<ChatMessage>> getChatHistory(String channelId) async {
     final resp = await _client.http.get('/api/v1/chat/$channelId/history');
     final messages = resp['messages'] as List<dynamic>;
-    return messages.map((m) => ChatMessage.fromJson(m as Map<String, dynamic>)).toList();
+    return messages.map((message) => ChatMessage.fromJson(message as Map<String, dynamic>)).toList();
   }
 }

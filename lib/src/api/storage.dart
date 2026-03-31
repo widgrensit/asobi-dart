@@ -8,7 +8,7 @@ class AsobiStorage {
   Future<List<CloudSaveSummary>> listSaves() async {
     final resp = await _client.http.get('/api/v1/saves');
     final saves = resp['saves'] as List<dynamic>;
-    return saves.map((s) => CloudSaveSummary.fromJson(s as Map<String, dynamic>)).toList();
+    return saves.map((save) => CloudSaveSummary.fromJson(save as Map<String, dynamic>)).toList();
   }
 
   Future<CloudSave> getSave(String slot) async {
@@ -29,7 +29,7 @@ class AsobiStorage {
       query: {'limit': limit.toString()},
     );
     final objects = resp['objects'] as List<dynamic>;
-    return objects.map((o) => StorageObject.fromJson(o as Map<String, dynamic>)).toList();
+    return objects.map((object) => StorageObject.fromJson(object as Map<String, dynamic>)).toList();
   }
 
   Future<StorageObject> getStorage(String collection, String key) async {

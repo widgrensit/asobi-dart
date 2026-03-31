@@ -8,6 +8,11 @@ class Wallet {
         currency: json['currency'] as String,
         balance: json['balance'] as int,
       );
+
+  Map<String, dynamic> toJson() => {
+        'currency': currency,
+        'balance': balance,
+      };
 }
 
 class Transaction {
@@ -41,6 +46,17 @@ class Transaction {
         referenceId: json['reference_id'] as String?,
         insertedAt: json['inserted_at'] as String,
       );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'wallet_id': walletId,
+        'amount': amount,
+        'balance_after': balanceAfter,
+        'reason': reason,
+        if (referenceType != null) 'reference_type': referenceType,
+        if (referenceId != null) 'reference_id': referenceId,
+        'inserted_at': insertedAt,
+      };
 }
 
 class StoreListing {
@@ -71,6 +87,16 @@ class StoreListing {
         validFrom: json['valid_from'] as String?,
         validUntil: json['valid_until'] as String?,
       );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'item_def_id': itemDefId,
+        'currency': currency,
+        'price': price,
+        'active': active,
+        if (validFrom != null) 'valid_from': validFrom,
+        if (validUntil != null) 'valid_until': validUntil,
+      };
 }
 
 class PlayerItem {
@@ -98,6 +124,15 @@ class PlayerItem {
         acquiredAt: json['acquired_at'] as String,
         updatedAt: json['updated_at'] as String,
       );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'item_def_id': itemDefId,
+        'player_id': playerId,
+        'quantity': quantity,
+        'acquired_at': acquiredAt,
+        'updated_at': updatedAt,
+      };
 }
 
 class PurchaseResponse {
@@ -110,4 +145,9 @@ class PurchaseResponse {
         success: json['success'] as bool,
         item: PlayerItem.fromJson(json['item'] as Map<String, dynamic>),
       );
+
+  Map<String, dynamic> toJson() => {
+        'success': success,
+        'item': item.toJson(),
+      };
 }

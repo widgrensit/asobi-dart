@@ -26,4 +26,14 @@ class Notification {
         read: json['read'] as bool,
         sentAt: json['sent_at'] as String,
       );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'player_id': playerId,
+        'type': type,
+        'subject': subject,
+        'content': content,
+        'read': read,
+        'sent_at': sentAt,
+      };
 }

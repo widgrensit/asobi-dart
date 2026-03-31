@@ -8,7 +8,7 @@ class AsobiMatches {
   Future<List<MatchRecord>> list() async {
     final resp = await _client.http.get('/api/v1/matches');
     final matches = resp['matches'] as List<dynamic>;
-    return matches.map((m) => MatchRecord.fromJson(m as Map<String, dynamic>)).toList();
+    return matches.map((match) => MatchRecord.fromJson(match as Map<String, dynamic>)).toList();
   }
 
   Future<MatchRecord> get(String matchId) async {

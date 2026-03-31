@@ -8,7 +8,7 @@ class AsobiNotifications {
   Future<List<Notification>> list() async {
     final resp = await _client.http.get('/api/v1/notifications');
     final notifications = resp['notifications'] as List<dynamic>;
-    return notifications.map((n) => Notification.fromJson(n as Map<String, dynamic>)).toList();
+    return notifications.map((notification) => Notification.fromJson(notification as Map<String, dynamic>)).toList();
   }
 
   Future<void> markRead(String notificationId) async {

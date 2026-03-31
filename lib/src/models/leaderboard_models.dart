@@ -20,4 +20,12 @@ class LeaderboardEntry {
         subScore: (json['sub_score'] as num?)?.toInt() ?? 0,
         updatedAt: json['updated_at'] as String?,
       );
+
+  Map<String, dynamic> toJson() => {
+        'leaderboard_id': leaderboardId,
+        'player_id': playerId,
+        'score': score,
+        'sub_score': subScore,
+        if (updatedAt != null) 'updated_at': updatedAt,
+      };
 }
