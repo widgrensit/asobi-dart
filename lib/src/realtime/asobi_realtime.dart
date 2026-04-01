@@ -9,6 +9,10 @@ import '../models/notification_models.dart';
 import '../models/realtime_models.dart';
 import '../models/social_models.dart';
 
+/// WebSocket realtime client for live match state, chat, matchmaking, and presence.
+///
+/// Supports automatic reconnection with exponential backoff. All server-push
+/// events are exposed as broadcast [Stream]s.
 class AsobiRealtime {
   final AsobiClient _client;
   WebSocketChannel? _channel;
@@ -22,21 +26,65 @@ class AsobiRealtime {
   static const Duration _baseReconnectDelay = Duration(seconds: 1);
   Timer? _reconnectTimer;
 
+  /// Whether the WebSocket connection is currently open.
   bool get isConnected => _channel != null;
 
+  /// Fires when the session is authenticated over WebSocket.
   final StreamController<void> onConnected = StreamController.broadcast();
+
+  /// Fires when the connection is closed, with a reason string.
   final StreamController<String> onDisconnected = StreamController.broadcast();
-  final StreamController<MatchState> onMatchState = StreamController.broadcast();
-  final StreamController<MatchStarted> onMatchStarted = StreamController.broadcast();
-  final StreamController<MatchResult> onMatchFinished = StreamController.broadcast();
-  final StreamController<ChatMessage> onChatMessage = StreamController.broadcast();
-  final StreamController<Notification> onNotification = StreamController.broadcast();
-  final StreamController<MatchmakerMatch> onMatchmakerMatched = StreamController.broadcast();
-  final StreamController<PresenceEvent> onPresenceChanged = StreamController.broadcast();
+
+  /// Fires on every match game-state tick from the server.
+  final StreamController<MatchState> onMatchState =
+      StreamController.broadcast();
+
+  /// Fires when a match begins.
+  final StreamController<MatchStarted> onMatchStarted =
+      StreamController.broadcast();
+
+  /// Fires when a match ends with final results.
+  final StreamController<MatchResult> onMatchFinished =
+      StreamController.broadcast();
+
+  /// Fires when a chat message is received in a joined channel.
+  final StreamController<ChatMessage> onChatMessage =
+      StreamController.broadcast();
+
+  /// Fires when a new notification arrives.
+  final StreamController<Notification> onNotification =
+      StreamController.broadcast();
+
+  /// Fires when the matchmaker finds a match.
+  final StreamController<MatchmakerMatch> onMatchmakerMatched =
+      StreamController.broadcast();
+
+  /// Fires when a player's presence status changes.
+  final StreamController<PresenceEvent> onPresenceChanged =
+      StreamController.broadcast();
+
+  /// Fires when a vote session starts in the current match.
+  final StreamController<Map<String, dynamic>> onVoteStart =
+      StreamController.broadcast();
+
+  /// Fires when the server broadcasts an interim vote tally.
+  final StreamController<Map<String, dynamic>> onVoteTally =
+      StreamController.broadcast();
+
+  /// Fires when a vote session concludes with a final result.
+  final StreamController<Map<String, dynamic>> onVoteResult =
+      StreamController.broadcast();
+
+  /// Fires when a vote is vetoed by a player.
+  final StreamController<Map<String, dynamic>> onVoteVetoed =
+      StreamController.broadcast();
+
+  /// Fires on WebSocket or server errors.
   final StreamController<RealtimeError> onError = StreamController.broadcast();
 
   AsobiRealtime(this._client);
 
+  /// Opens the WebSocket connection and authenticates the session.
   Future<void> connect({bool autoReconnect = true}) async {
     _autoReconnect = autoReconnect;
     _reconnectAttempts = 0;
@@ -87,34 +135,55 @@ class AsobiRealtime {
     });
   }
 
+  /// Joins a live match by [matchId] to start receiving state updates.
   Future<void> joinMatch(String matchId) =>
       _send('match.join', {'match_id': matchId});
 
+  /// Sends player input to the current match (fire-and-forget).
   void sendMatchInput(MatchInput input) =>
       _sendFireAndForget('match.input', input.toJson());
 
+  /// Leaves the current match.
   Future<void> leaveMatch() => _send('match.leave', {});
 
+  /// Casts a vote in an active vote session.
+  ///
+  /// [optionId] may be a single `String` or a `List<String>` for multi-select.
+  void castVote(String voteId, dynamic optionId) =>
+      _sendFireAndForget('match.vote', {'vote_id': voteId, 'option_id': optionId});
+
+  /// Vetoes an active vote session.
+  void castVeto(String voteId) =>
+      _sendFireAndForget('match.veto', {'vote_id': voteId});
+
+  /// Adds the player to the matchmaking queue for the given [mode].
   Future<void> addToMatchmaker({String mode = 'default'}) =>
       _send('matchmaker.add', {'mode': mode});
 
+  /// Removes the player from the matchmaking queue.
   Future<void> removeFromMatchmaker(String ticketId) =>
       _send('matchmaker.remove', {'ticket_id': ticketId});
 
+  /// Joins a chat channel to receive messages.
   Future<void> joinChat(String channelId) =>
       _send('chat.join', {'channel_id': channelId});
 
-  void sendChatMessage(String channelId, String content) =>
-      _sendFireAndForget('chat.send', {'channel_id': channelId, 'content': content});
+  /// Sends a chat message to a channel (fire-and-forget).
+  void sendChatMessage(String channelId, String content) => _sendFireAndForget(
+      'chat.send', {'channel_id': channelId, 'content': content});
 
+  /// Leaves a chat channel.
   Future<void> leaveChat(String channelId) =>
       _send('chat.leave', {'channel_id': channelId});
 
+  /// Updates the player's online presence status.
   Future<void> updatePresence({String status = 'online'}) =>
       _send('presence.update', {'status': status});
 
+  /// Sends a keepalive heartbeat to the server.
   void sendHeartbeat() => _sendFireAndForget('session.heartbeat', {});
 
+  /// Closes the WebSocket connection and cancels any pending requests.
   Future<void> disconnect() async {
     _autoReconnect = false;
     _reconnectTimer?.cancel();
@@ -127,7 +196,8 @@ class AsobiRealtime {
     _pending.clear();
   }
 
-  Future<Map<String, dynamic>> _send(String type, Map<String, dynamic> payload) {
+  Future<Map<String, dynamic>> _send(
+      String type, Map<String, dynamic> payload) {
     final cid = (++_cidCounter).toString();
     final completer = Completer<Map<String, dynamic>>();
     _pending[cid] = completer;
@@ -156,7 +226,8 @@ class AsobiRealtime {
     if (msg.cid != null && _pending.containsKey(msg.cid)) {
       final completer = _pending.remove(msg.cid)!;
       if (msg.type == 'error') {
-        completer.completeError(AsobiException(-1, msg.payload['message'] as String? ?? 'Unknown error'));
+        completer.completeError(AsobiException(
+            -1, msg.payload['message'] as String? ?? 'Unknown error'));
       } else {
         completer.complete(msg.payload);
       }
@@ -171,6 +242,14 @@ class AsobiRealtime {
         onMatchStarted.add(MatchStarted.fromJson(msg.payload));
       case 'match.finished':
         onMatchFinished.add(MatchResult.fromJson(msg.payload));
+      case 'match.vote_start':
+        onVoteStart.add(msg.payload);
+      case 'match.vote_tally':
+        onVoteTally.add(msg.payload);
+      case 'match.vote_result':
+        onVoteResult.add(msg.payload);
+      case 'match.vote_vetoed':
+        onVoteVetoed.add(msg.payload);
       case 'chat.message':
         onChatMessage.add(ChatMessage.fromJson(msg.payload));
       case 'notification.new':
