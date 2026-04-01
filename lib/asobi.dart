@@ -12,6 +12,7 @@ export 'src/api/tournaments.dart';
 export 'src/api/notifications.dart';
 export 'src/api/storage.dart';
 export 'src/api/iap.dart';
+export 'src/api/votes.dart';
 export 'src/realtime/asobi_realtime.dart';
 export 'src/models/auth_models.dart';
 export 'src/models/iap_models.dart';
