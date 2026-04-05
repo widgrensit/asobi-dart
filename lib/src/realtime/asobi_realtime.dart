@@ -38,6 +38,7 @@ class AsobiRealtime {
   final StreamController<Map<String, dynamic>> onVoteResult = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onVoteVetoed = StreamController.broadcast();
   final StreamController<WorldTick> onWorldTick = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onWorldJoined = StreamController.broadcast();
   final StreamController<RealtimeError> onError = StreamController.broadcast();
 
   AsobiRealtime(this._client);
@@ -104,6 +105,22 @@ class AsobiRealtime {
       _sendFireAndForget('match.input', payload);
 
   Future<void> leaveMatch() => _send('match.leave', {});
+
+  /// Lists running worlds, optionally filtered by mode.
+  Future<Map<String, dynamic>> listWorlds({String? mode}) =>
+      _send('world.list', {if (mode != null) 'mode': mode});
+
+  /// Joins an existing world by ID.
+  Future<Map<String, dynamic>> joinWorld(String worldId) =>
+      _send('world.join', {'world_id': worldId});
+
+  /// Creates a new world and auto-joins it.
+  Future<Map<String, dynamic>> createWorld(String mode) =>
+      _send('world.create', {'mode': mode});
+
+  /// Finds a world with capacity or creates one, then auto-joins.
+  Future<Map<String, dynamic>> findOrCreateWorld(String mode) =>
+      _send('world.find_or_create', {'mode': mode});
 
   void castVote(String voteId, dynamic optionId) =>
       _sendFireAndForget('match.vote', {'vote_id': voteId, 'option_id': optionId});
@@ -203,6 +220,8 @@ class AsobiRealtime {
         onMatchmakerMatched.add(MatchmakerMatch.fromJson(msg.payload));
       case 'world.tick':
         onWorldTick.add(WorldTick.fromJson(msg.payload));
+      case 'world.joined':
+        onWorldJoined.add(msg.payload);
       case 'presence.changed':
         onPresenceChanged.add(PresenceEvent.fromJson(msg.payload));
       case 'error':

@@ -12,6 +12,7 @@ import 'api/notifications.dart';
 import 'api/storage.dart';
 import 'api/iap.dart';
 import 'api/votes.dart';
+import 'api/worlds.dart';
 import 'realtime/asobi_realtime.dart';
 
 class AsobiClient {
@@ -31,6 +32,7 @@ class AsobiClient {
   late final AsobiStorage storage;
   late final AsobiIAP iap;
   late final AsobiVotes votes;
+  late final AsobiWorlds worlds;
   late final AsobiRealtime realtime;
 
   String? _sessionToken;
@@ -61,6 +63,7 @@ class AsobiClient {
     storage = AsobiStorage(this);
     iap = AsobiIAP(this);
     votes = AsobiVotes(this);
+    worlds = AsobiWorlds(http);
     realtime = AsobiRealtime(this);
   }
 
