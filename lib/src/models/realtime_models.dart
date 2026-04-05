@@ -226,6 +226,44 @@ class RealtimeError {
   String toString() => 'RealtimeError($message${code != null ? ', code: $code' : ''})';
 }
 
+class WorldTick {
+  final int tick;
+  final List<EntityDelta> updates;
+
+  WorldTick({required this.tick, required this.updates});
+
+  factory WorldTick.fromJson(Map<String, dynamic> json) => WorldTick(
+        tick: (json['tick'] as num?)?.toInt() ?? 0,
+        updates: (json['updates'] as List<dynamic>?)
+                ?.map((u) => EntityDelta.fromJson(u as Map<String, dynamic>))
+                .toList() ??
+            [],
+      );
+}
+
+class EntityDelta {
+  /// "a" = added, "u" = updated, "r" = removed
+  final String op;
+  final String id;
+  final Map<String, dynamic> data;
+
+  EntityDelta({required this.op, required this.id, this.data = const {}});
+
+  factory EntityDelta.fromJson(Map<String, dynamic> json) {
+    final op = json['op'] as String? ?? 'u';
+    final id = json['id'] as String? ?? '';
+    final data = Map<String, dynamic>.from(json)
+      ..remove('op')
+      ..remove('id');
+    return EntityDelta(op: op, id: id, data: data);
+  }
+
+  double get x => (data['x'] as num?)?.toDouble() ?? 0;
+  double get y => (data['y'] as num?)?.toDouble() ?? 0;
+  int get hp => (data['hp'] as num?)?.toInt() ?? (data['hull'] as num?)?.toInt() ?? 100;
+  bool get docked => data['docked'] as bool? ?? false;
+}
+
 class MatchInput {
   final bool up;
   final bool down;
