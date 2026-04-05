@@ -616,6 +616,7 @@ void main() {
       expect(client.notifications, isNotNull);
       expect(client.storage, isNotNull);
       expect(client.iap, isNotNull);
+      expect(client.votes, isNotNull);
       expect(client.realtime, isNotNull);
     });
 
