@@ -37,6 +37,7 @@ class AsobiRealtime {
   final StreamController<Map<String, dynamic>> onVoteTally = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onVoteResult = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onVoteVetoed = StreamController.broadcast();
+  final StreamController<WorldTick> onWorldTick = StreamController.broadcast();
   final StreamController<RealtimeError> onError = StreamController.broadcast();
 
   AsobiRealtime(this._client);
@@ -200,6 +201,8 @@ class AsobiRealtime {
         onNotification.add(Notification.fromJson(msg.payload));
       case 'match.matched':
         onMatchmakerMatched.add(MatchmakerMatch.fromJson(msg.payload));
+      case 'world.tick':
+        onWorldTick.add(WorldTick.fromJson(msg.payload));
       case 'presence.changed':
         onPresenceChanged.add(PresenceEvent.fromJson(msg.payload));
       case 'error':
