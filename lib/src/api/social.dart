@@ -47,6 +47,21 @@ class AsobiSocial {
     return Group.fromJson(resp);
   }
 
+  Future<Group> updateGroup(String groupId, {
+    String? name,
+    String? description,
+    int? maxMembers,
+    bool? open,
+  }) async {
+    final body = <String, dynamic>{};
+    if (name != null) body['name'] = name;
+    if (description != null) body['description'] = description;
+    if (maxMembers != null) body['max_members'] = maxMembers;
+    if (open != null) body['open'] = open;
+    final resp = await _client.http.put('/api/v1/groups/$groupId', body: body);
+    return Group.fromJson(resp);
+  }
+
   Future<void> joinGroup(String groupId) async {
     await _client.http.post('/api/v1/groups/$groupId/join');
   }
@@ -55,9 +70,49 @@ class AsobiSocial {
     await _client.http.post('/api/v1/groups/$groupId/leave');
   }
 
-  Future<List<ChatMessage>> getChatHistory(String channelId) async {
-    final resp = await _client.http.get('/api/v1/chat/$channelId/history');
+  Future<List<GroupMember>> getGroupMembers(String groupId) async {
+    final resp = await _client.http.get('/api/v1/groups/$groupId/members');
+    final members = resp['members'] as List<dynamic>;
+    return members.map((m) => GroupMember.fromJson(m as Map<String, dynamic>)).toList();
+  }
+
+  Future<GroupMember> updateMemberRole(String groupId, String playerId, String role) async {
+    final resp = await _client.http.put(
+      '/api/v1/groups/$groupId/members/$playerId/role',
+      body: {'role': role},
+    );
+    return GroupMember.fromJson(resp);
+  }
+
+  Future<void> removeMember(String groupId, String playerId) async {
+    await _client.http.delete('/api/v1/groups/$groupId/members/$playerId');
+  }
+
+  Future<List<ChatMessage>> getChatHistory(String channelId, {int? limit}) async {
+    final query = <String, String>{};
+    if (limit != null) query['limit'] = limit.toString();
+    final resp = await _client.http.get('/api/v1/chat/$channelId/history', query: query.isNotEmpty ? query : null);
     final messages = resp['messages'] as List<dynamic>;
     return messages.map((message) => ChatMessage.fromJson(message as Map<String, dynamic>)).toList();
+  }
+
+  Future<DmResponse> sendDm(String recipientId, String content) async {
+    final resp = await _client.http.post('/api/v1/dm', body: {
+      'recipient_id': recipientId,
+      'content': content,
+    });
+    return DmResponse.fromJson(resp);
+  }
+
+  Future<DmHistory> getDmHistory(String playerId, {int? limit}) async {
+    final query = <String, String>{};
+    if (limit != null) query['limit'] = limit.toString();
+    final resp = await _client.http.get('/api/v1/dm/$playerId/history', query: query.isNotEmpty ? query : null);
+    return DmHistory.fromJson(resp);
+  }
+
+  Future<Friendship> updateFriend(String friendId, {required String status}) async {
+    final resp = await _client.http.put('/api/v1/friends/$friendId', body: {'status': status});
+    return Friendship.fromJson(resp);
   }
 }

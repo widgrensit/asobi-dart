@@ -15,11 +15,11 @@ Future<void> main() async {
 
   // Connect realtime
   client.realtime.onMatchmakerMatched.stream.listen((data) {
-    print('Match found: ${data['match_id']}');
+    print('Match found: ${data.matchId}');
   });
 
   client.realtime.onMatchState.stream.listen((state) {
-    print('Game tick: ${state['tick']}');
+    print('Game tick: ${state.timeRemaining}');
   });
 
   await client.realtime.connect();

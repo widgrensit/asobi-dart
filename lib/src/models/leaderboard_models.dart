@@ -3,6 +3,7 @@ class LeaderboardEntry {
   final String playerId;
   final int score;
   final int subScore;
+  final int? rank;
   final String? updatedAt;
 
   LeaderboardEntry({
@@ -10,6 +11,7 @@ class LeaderboardEntry {
     required this.playerId,
     required this.score,
     required this.subScore,
+    this.rank,
     this.updatedAt,
   });
 
@@ -18,6 +20,7 @@ class LeaderboardEntry {
         playerId: json['player_id'] as String? ?? '',
         score: (json['score'] as num?)?.toInt() ?? 0,
         subScore: (json['sub_score'] as num?)?.toInt() ?? 0,
+        rank: (json['rank'] as num?)?.toInt(),
         updatedAt: json['updated_at'] as String?,
       );
 
@@ -26,6 +29,7 @@ class LeaderboardEntry {
         'player_id': playerId,
         'score': score,
         'sub_score': subScore,
+        if (rank != null) 'rank': rank,
         if (updatedAt != null) 'updated_at': updatedAt,
       };
 }

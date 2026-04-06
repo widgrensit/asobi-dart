@@ -26,4 +26,5 @@ export 'src/models/storage_models.dart';
 export 'src/models/tournament_models.dart';
 export 'src/models/notification_models.dart';
 export 'src/models/realtime_models.dart';
+export 'src/models/vote_models.dart';
 export 'src/models/world_models.dart';
