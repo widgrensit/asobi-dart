@@ -241,6 +241,25 @@ class WorldTick {
       );
 }
 
+class WorldTerrainChunk {
+  final int coordX;
+  final int coordY;
+
+  /// Base64-encoded raw terrain bytes. Decode with [base64Decode].
+  final String base64Data;
+
+  WorldTerrainChunk({required this.coordX, required this.coordY, required this.base64Data});
+
+  factory WorldTerrainChunk.fromJson(Map<String, dynamic> json) {
+    final coords = json['coords'] as List<dynamic>? ?? const [0, 0];
+    return WorldTerrainChunk(
+      coordX: coords.isNotEmpty ? (coords[0] as num).toInt() : 0,
+      coordY: coords.length > 1 ? (coords[1] as num).toInt() : 0,
+      base64Data: json['data'] as String? ?? '',
+    );
+  }
+}
+
 class EntityDelta {
   /// "a" = added, "u" = updated, "r" = removed
   final String op;

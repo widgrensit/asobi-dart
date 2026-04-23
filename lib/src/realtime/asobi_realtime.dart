@@ -38,10 +38,18 @@ class AsobiRealtime {
   final StreamController<Map<String, dynamic>> onVoteResult = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onVoteVetoed = StreamController.broadcast();
   final StreamController<WorldTick> onWorldTick = StreamController.broadcast();
+  final StreamController<WorldTerrainChunk> onWorldTerrain = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onWorldJoined = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onWorldLeft = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onWorldEvent = StreamController.broadcast();
   final StreamController<ChatMessage> onDmMessage = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onDmSent = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onChatJoined = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onChatLeft = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onMatchmakerQueued = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onMatchmakerRemoved = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onVoteCastOk = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onVoteVetoOk = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onMatchEvent = StreamController.broadcast();
   final StreamController<RealtimeError> onError = StreamController.broadcast();
 
@@ -243,13 +251,29 @@ class AsobiRealtime {
         onMatchmakerMatched.add(MatchmakerMatch.fromJson(msg.payload));
       case 'world.tick':
         onWorldTick.add(WorldTick.fromJson(msg.payload));
+      case 'world.terrain':
+        onWorldTerrain.add(WorldTerrainChunk.fromJson(msg.payload));
       case 'world.joined':
         onWorldJoined.add(msg.payload);
       case 'world.left':
         onWorldLeft.add(msg.payload);
       case 'dm.message':
         onDmMessage.add(ChatMessage.fromJson(msg.payload));
-      case 'presence.changed':
+      case 'dm.sent':
+        onDmSent.add(msg.payload);
+      case 'chat.joined':
+        onChatJoined.add(msg.payload);
+      case 'chat.left':
+        onChatLeft.add(msg.payload);
+      case 'matchmaker.queued':
+        onMatchmakerQueued.add(msg.payload);
+      case 'matchmaker.removed':
+        onMatchmakerRemoved.add(msg.payload);
+      case 'vote.cast_ok':
+        onVoteCastOk.add(msg.payload);
+      case 'vote.veto_ok':
+        onVoteVetoOk.add(msg.payload);
+      case 'presence.updated':
         onPresenceChanged.add(PresenceEvent.fromJson(msg.payload));
       case 'error':
         onError.add(RealtimeError.fromJson(msg.payload));
