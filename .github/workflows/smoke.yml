@@ -1,0 +1,43 @@
+name: Smoke test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out asobi-test-harness
+        uses: actions/checkout@v4
+        with:
+          repository: widgrensit/asobi-test-harness
+          path: _harness
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - run: dart pub get
+
+      - name: Start harness
+        working-directory: _harness
+        run: docker compose up -d
+
+      - name: Run smoke test
+        env:
+          ASOBI_URL: http://localhost:8080
+        run: dart run smoke_tests/smoke.dart
+
+      - name: Harness logs on failure
+        if: failure()
+        working-directory: _harness
+        run: docker compose logs asobi | tail -200
+
+      - name: Stop harness
+        if: always()
+        working-directory: _harness
+        run: docker compose down -v
