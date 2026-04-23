@@ -113,3 +113,62 @@ class ChatMessage {
         'sent_at': sentAt,
       };
 }
+
+class GroupMember {
+  final String playerId;
+  final String groupId;
+  final String role;
+  final String joinedAt;
+
+  GroupMember({
+    required this.playerId,
+    required this.groupId,
+    required this.role,
+    required this.joinedAt,
+  });
+
+  factory GroupMember.fromJson(Map<String, dynamic> json) => GroupMember(
+        playerId: json['player_id'] as String,
+        groupId: json['group_id'] as String,
+        role: json['role'] as String,
+        joinedAt: json['joined_at'] as String,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'player_id': playerId,
+        'group_id': groupId,
+        'role': role,
+        'joined_at': joinedAt,
+      };
+}
+
+class DmResponse {
+  final bool success;
+  final String channelId;
+
+  DmResponse({required this.success, required this.channelId});
+
+  factory DmResponse.fromJson(Map<String, dynamic> json) => DmResponse(
+        success: json['success'] as bool? ?? true,
+        channelId: json['channel_id'] as String,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'success': success,
+        'channel_id': channelId,
+      };
+}
+
+class DmHistory {
+  final List<ChatMessage> messages;
+  final String channelId;
+
+  DmHistory({required this.messages, required this.channelId});
+
+  factory DmHistory.fromJson(Map<String, dynamic> json) => DmHistory(
+        messages: (json['messages'] as List<dynamic>)
+            .map((m) => ChatMessage.fromJson(m as Map<String, dynamic>))
+            .toList(),
+        channelId: json['channel_id'] as String,
+      );
+}

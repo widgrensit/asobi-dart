@@ -151,3 +151,20 @@ class PurchaseResponse {
         'item': item.toJson(),
       };
 }
+
+class ConsumeResponse {
+  final bool success;
+  final int remainingQuantity;
+
+  ConsumeResponse({required this.success, required this.remainingQuantity});
+
+  factory ConsumeResponse.fromJson(Map<String, dynamic> json) => ConsumeResponse(
+        success: json['success'] as bool? ?? true,
+        remainingQuantity: (json['remaining_quantity'] as num?)?.toInt() ?? 0,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'success': success,
+        'remaining_quantity': remainingQuantity,
+      };
+}
