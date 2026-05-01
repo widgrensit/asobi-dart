@@ -1,7 +1,7 @@
-// Smoke test for asobi-dart against the asobi-test-harness.
+// Smoke test for asobi-dart against widgrensit/sdk_demo_backend.
 //
-// Expects the harness running at ASOBI_URL (default localhost:8080).
-// See widgrensit/asobi-test-harness for the canonical scenarios.
+// Expects the backend running at ASOBI_URL (default localhost:8084).
+// See widgrensit/sdk_demo_backend/SMOKE.md for the canonical scenarios.
 
 import 'dart:async';
 import 'dart:io';
@@ -9,19 +9,19 @@ import 'dart:math';
 
 import 'package:asobi/asobi.dart';
 
-const _matchMode = 'smoke';
+const _matchMode = 'demo';
 const _startupTimeout = Duration(seconds: 60);
 const _matchJoinTimeout = Duration(seconds: 10);
 const _stateTimeout = Duration(seconds: 3);
 
 Future<void> main() async {
   final url = _parseUrl(
-    Platform.environment['ASOBI_URL'] ?? 'http://localhost:8080',
+    Platform.environment['ASOBI_URL'] ?? 'http://localhost:8084',
   );
 
-  _log('Waiting for harness at ${url['host']}:${url['port']}');
+  _log('Waiting for backend at ${url['host']}:${url['port']}');
   await _waitForServer(url);
-  _log('Harness reachable.');
+  _log('Backend reachable.');
 
   // Two players, each with their own client.
   final a = await _spawnPlayer('a', url);
@@ -50,19 +50,28 @@ Future<void> main() async {
   }
 
   // match.input → match.state applied.
-  final stateCompleter = Completer<PlayerState>();
+  // Capture x_initial from the FIRST match.state for the local player,
+  // then assert a subsequent state shows x > x_initial + 10. Spawn x is
+  // random in [50, 700], so an `x >= 1` check would trivially pass.
+  double? xInitial;
+  final movedCompleter = Completer<PlayerState>();
   final sub = a.client.realtime.onMatchState.stream.listen((state) {
     final me = state.players[a.playerId];
-    if (me != null && me.x >= 1 && !stateCompleter.isCompleted) {
-      stateCompleter.complete(me);
+    if (me == null) return;
+    if (xInitial == null) {
+      xInitial = me.x.toDouble();
+      _log('x_initial = $xInitial');
+      a.client.realtime.sendMatchInput({'move_x': 1, 'move_y': 0});
+      return;
+    }
+    if (!movedCompleter.isCompleted && me.x > xInitial! + 10) {
+      movedCompleter.complete(me);
     }
   });
 
-  a.client.realtime.sendMatchInput({'move_x': 1, 'move_y': 0});
-
-  final me = await stateCompleter.future.timeout(_stateTimeout);
+  final me = await movedCompleter.future.timeout(_stateTimeout);
   await sub.cancel();
-  _log('match.state confirmed: x = ${me.x}');
+  _log('match.state confirmed: x = ${me.x} (was $xInitial)');
 
   await a.client.realtime.disconnect();
   await b.client.realtime.disconnect();
@@ -128,7 +137,7 @@ Future<void> _waitForServer(Map<String, dynamic> url) async {
     await Future.delayed(const Duration(seconds: 1));
   }
   client.close();
-  throw Exception('harness never became reachable at $scheme://$host:$port');
+  throw Exception('backend never became reachable at $scheme://$host:$port');
 }
 
 void _log(Object? msg) {

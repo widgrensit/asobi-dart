@@ -11,11 +11,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check out asobi-test-harness
+      - name: Check out sdk_demo_backend
         uses: actions/checkout@v4
         with:
-          repository: widgrensit/asobi-test-harness
-          path: _harness
+          repository: widgrensit/sdk_demo_backend
+          path: _backend
 
       - uses: dart-lang/setup-dart@v1
         with:
@@ -23,21 +23,21 @@ jobs:
 
       - run: dart pub get
 
-      - name: Start harness
-        working-directory: _harness
+      - name: Start backend
+        working-directory: _backend
         run: docker compose up -d
 
       - name: Run smoke test
         env:
-          ASOBI_URL: http://localhost:8080
+          ASOBI_URL: http://localhost:8084
         run: dart run smoke_tests/smoke.dart
 
-      - name: Harness logs on failure
+      - name: Backend logs on failure
         if: failure()
-        working-directory: _harness
-        run: docker compose logs asobi | tail -200
+        working-directory: _backend
+        run: docker compose logs | tail -200
 
-      - name: Stop harness
+      - name: Stop backend
         if: always()
-        working-directory: _harness
+        working-directory: _backend
         run: docker compose down -v
