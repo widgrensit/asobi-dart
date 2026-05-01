@@ -203,8 +203,8 @@ class PresenceEvent {
   PresenceEvent({required this.playerId, required this.status});
 
   factory PresenceEvent.fromJson(Map<String, dynamic> json) => PresenceEvent(
-        playerId: json['player_id'] as String,
-        status: json['status'] as String,
+        playerId: json['player_id'] as String? ?? '',
+        status: json['status'] as String? ?? '',
       );
 
   Map<String, dynamic> toJson() => {

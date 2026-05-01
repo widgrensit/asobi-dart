@@ -96,12 +96,12 @@ class ChatMessage {
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
-        id: json['id'] as String,
-        channelType: json['channel_type'] as String,
-        channelId: json['channel_id'] as String,
-        senderId: json['sender_id'] as String,
-        content: json['content'] as String,
-        sentAt: json['sent_at'] as String,
+        id: json['id'] as String? ?? '',
+        channelType: json['channel_type'] as String? ?? '',
+        channelId: json['channel_id'] as String? ?? '',
+        senderId: json['sender_id'] as String? ?? '',
+        content: json['content'] as String? ?? '',
+        sentAt: json['sent_at'] as String? ?? '',
       );
 
   Map<String, dynamic> toJson() => {

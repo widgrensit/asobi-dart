@@ -18,13 +18,13 @@ class Notification {
   });
 
   factory Notification.fromJson(Map<String, dynamic> json) => Notification(
-        id: json['id'] as String,
-        playerId: json['player_id'] as String,
-        type: json['type'] as String,
-        subject: json['subject'] as String,
-        content: json['content'] as String,
-        read: json['read'] as bool,
-        sentAt: json['sent_at'] as String,
+        id: json['id'] as String? ?? '',
+        playerId: json['player_id'] as String? ?? '',
+        type: (json['type'] as String?) ?? (json['kind'] as String?) ?? '',
+        subject: json['subject'] as String? ?? '',
+        content: json['content'] as String? ?? '',
+        read: json['read'] as bool? ?? false,
+        sentAt: json['sent_at'] as String? ?? '',
       );
 
   Map<String, dynamic> toJson() => {
