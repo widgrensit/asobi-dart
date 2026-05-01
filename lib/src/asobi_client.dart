@@ -46,7 +46,7 @@ class AsobiClient {
 
   bool get isAuthenticated => _sessionToken != null;
 
-  AsobiClient(String host, {int port = 8080, bool useSsl = false})
+  AsobiClient(String host, {int port = 8084, bool useSsl = false})
       : this.fromConfig(AsobiConfig(host, port: port, useSsl: useSsl));
 
   AsobiClient.fromConfig(this.config) : http = AsobiHttpClient(config.baseUrl) {
@@ -79,7 +79,7 @@ class AsobiConfig {
   final String baseUrl;
   final String wsUrl;
 
-  AsobiConfig(this.host, {this.port = 8080, this.useSsl = false})
+  AsobiConfig(this.host, {this.port = 8084, this.useSsl = false})
       : baseUrl = '${useSsl ? 'https' : 'http'}://$host:$port',
         wsUrl = '${useSsl ? 'wss' : 'ws'}://$host:$port/ws';
 }
