@@ -84,10 +84,16 @@ class MatchState {
   final List<ProjectileState> projectiles;
   final double timeRemaining;
 
+  /// The raw `match.state` payload as the server sent it. Use to read
+  /// game-specific fields the typed view doesn't capture (e.g. `phase`,
+  /// custom round/boon/vote state, world-specific arrays).
+  final Map<String, dynamic> raw;
+
   MatchState({
     required this.players,
     required this.projectiles,
     required this.timeRemaining,
+    this.raw = const {},
   });
 
   factory MatchState.fromJson(Map<String, dynamic> json) {
@@ -103,6 +109,7 @@ class MatchState {
           .toList(),
       timeRemaining:
           (json['time_remaining'] as num?)?.toDouble() ?? 0,
+      raw: json,
     );
   }
 
