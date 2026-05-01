@@ -283,32 +283,3 @@ class EntityDelta {
   bool get docked => data['docked'] as bool? ?? false;
 }
 
-class MatchInput {
-  final bool up;
-  final bool down;
-  final bool left;
-  final bool right;
-  final bool shoot;
-  final double aimX;
-  final double aimY;
-
-  MatchInput({
-    this.up = false,
-    this.down = false,
-    this.left = false,
-    this.right = false,
-    this.shoot = false,
-    this.aimX = 0,
-    this.aimY = 0,
-  });
-
-  Map<String, dynamic> toJson() => {
-        'up': up,
-        'down': down,
-        'left': left,
-        'right': right,
-        'shoot': shoot,
-        'aim_x': aimX,
-        'aim_y': aimY,
-      };
-}

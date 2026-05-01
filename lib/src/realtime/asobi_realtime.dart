@@ -108,13 +108,12 @@ class AsobiRealtime {
   Future<void> joinMatch(String matchId) =>
       _send('match.join', {'match_id': matchId});
 
-  void sendMatchInput(MatchInput input) =>
-      _sendFireAndForget('match.input', input.toJson());
-
-  /// Sends a raw input payload to the server, bypassing [MatchInput].
-  /// Use for game-specific commands like `{'type': 'dock'}`.
-  void sendRawInput(Map<String, dynamic> payload) =>
-      _sendFireAndForget('match.input', payload);
+  /// Sends a `match.input` envelope. The payload shape is game-specific —
+  /// each backend (sdk_demo_backend uses `{move_x, move_y}`, asobi_arena
+  /// uses `{up, down, left, right, shoot, aim_x, aim_y}`, etc.) defines
+  /// what its match script reads.
+  void sendMatchInput(Map<String, dynamic> input) =>
+      _sendFireAndForget('match.input', input);
 
   Future<void> leaveMatch() => _send('match.leave', {});
 
