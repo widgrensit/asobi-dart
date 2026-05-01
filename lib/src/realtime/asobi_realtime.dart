@@ -26,9 +26,14 @@ class AsobiRealtime {
 
   final StreamController<void> onConnected = StreamController.broadcast();
   final StreamController<String> onDisconnected = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onHeartbeat = StreamController.broadcast();
   final StreamController<MatchState> onMatchState = StreamController.broadcast();
   final StreamController<MatchStarted> onMatchStarted = StreamController.broadcast();
   final StreamController<MatchResult> onMatchFinished = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onMatchJoined = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onMatchLeft = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onMatchmakerExpired = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onMatchmakerFailed = StreamController.broadcast();
   final StreamController<ChatMessage> onChatMessage = StreamController.broadcast();
   final StreamController<Notification> onNotification = StreamController.broadcast();
   final StreamController<MatchmakerMatch> onMatchmakerMatched = StreamController.broadcast();
@@ -41,6 +46,9 @@ class AsobiRealtime {
   final StreamController<WorldTerrainChunk> onWorldTerrain = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onWorldJoined = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onWorldLeft = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onWorldList = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onWorldPhaseChanged = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onWorldFinished = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onWorldEvent = StreamController.broadcast();
   final StreamController<ChatMessage> onDmMessage = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onDmSent = StreamController.broadcast();
@@ -228,12 +236,20 @@ class AsobiRealtime {
     switch (msg.type) {
       case 'session.connected':
         onConnected.add(null);
+      case 'session.heartbeat':
+        onHeartbeat.add(msg.payload);
       case 'match.state':
         onMatchState.add(MatchState.fromJson(msg.payload));
-      case 'match.started':
-        onMatchStarted.add(MatchStarted.fromJson(msg.payload));
+      case 'match.joined':
+        onMatchJoined.add(msg.payload);
+      case 'match.left':
+        onMatchLeft.add(msg.payload);
       case 'match.finished':
         onMatchFinished.add(MatchResult.fromJson(msg.payload));
+      case 'match.matchmaker_expired':
+        onMatchmakerExpired.add(msg.payload);
+      case 'match.matchmaker_failed':
+        onMatchmakerFailed.add(msg.payload);
       case 'match.vote_start':
         onVoteStart.add(msg.payload);
       case 'match.vote_tally':
@@ -256,6 +272,12 @@ class AsobiRealtime {
         onWorldJoined.add(msg.payload);
       case 'world.left':
         onWorldLeft.add(msg.payload);
+      case 'world.list':
+        onWorldList.add(msg.payload);
+      case 'world.phase_changed':
+        onWorldPhaseChanged.add(msg.payload);
+      case 'world.finished':
+        onWorldFinished.add(msg.payload);
       case 'dm.message':
         onDmMessage.add(ChatMessage.fromJson(msg.payload));
       case 'dm.sent':
@@ -284,4 +306,9 @@ class AsobiRealtime {
         }
     }
   }
+
+  /// Test-only entry point for feeding raw WebSocket frames into the
+  /// dispatch switch without opening a real connection. Exercised by
+  /// `test/dispatch_test.dart` against the canonical fixture corpus.
+  void debugHandleMessage(String raw) => _handleMessage(raw);
 }
