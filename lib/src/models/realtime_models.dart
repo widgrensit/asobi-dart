@@ -84,10 +84,16 @@ class MatchState {
   final List<ProjectileState> projectiles;
   final double timeRemaining;
 
+  /// The raw `match.state` payload as the server sent it. Use to read
+  /// game-specific fields the typed view doesn't capture (e.g. `phase`,
+  /// custom round/boon/vote state, world-specific arrays).
+  final Map<String, dynamic> raw;
+
   MatchState({
     required this.players,
     required this.projectiles,
     required this.timeRemaining,
+    this.raw = const {},
   });
 
   factory MatchState.fromJson(Map<String, dynamic> json) {
@@ -103,6 +109,7 @@ class MatchState {
           .toList(),
       timeRemaining:
           (json['time_remaining'] as num?)?.toDouble() ?? 0,
+      raw: json,
     );
   }
 
@@ -283,32 +290,3 @@ class EntityDelta {
   bool get docked => data['docked'] as bool? ?? false;
 }
 
-class MatchInput {
-  final bool up;
-  final bool down;
-  final bool left;
-  final bool right;
-  final bool shoot;
-  final double aimX;
-  final double aimY;
-
-  MatchInput({
-    this.up = false,
-    this.down = false,
-    this.left = false,
-    this.right = false,
-    this.shoot = false,
-    this.aimX = 0,
-    this.aimY = 0,
-  });
-
-  Map<String, dynamic> toJson() => {
-        'up': up,
-        'down': down,
-        'left': left,
-        'right': right,
-        'shoot': shoot,
-        'aim_x': aimX,
-        'aim_y': aimY,
-      };
-}

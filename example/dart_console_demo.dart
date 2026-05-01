@@ -65,7 +65,7 @@ Future<void> main() async {
     }
   });
 
-  a.client.realtime.sendRawInput({'move_x': 1, 'move_y': 0});
+  a.client.realtime.sendMatchInput({'move_x': 1, 'move_y': 0});
 
   final me = await stateCompleter.future.timeout(_stateTimeout);
   await sub.cancel();
