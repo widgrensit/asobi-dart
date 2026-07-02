@@ -15,6 +15,7 @@ import 'package:asobi/src/models/social_models.dart';
 import 'package:asobi/src/models/storage_models.dart';
 import 'package:asobi/src/models/tournament_models.dart';
 import 'package:asobi/src/models/notification_models.dart';
+import 'package:asobi/src/models/vote_models.dart';
 import 'package:asobi/src/models/realtime_models.dart';
 import 'package:asobi/src/http_client.dart';
 import 'package:asobi/src/asobi_client.dart';
