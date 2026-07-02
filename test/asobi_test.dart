@@ -15,6 +15,7 @@ import 'package:asobi/src/models/social_models.dart';
 import 'package:asobi/src/models/storage_models.dart';
 import 'package:asobi/src/models/tournament_models.dart';
 import 'package:asobi/src/models/notification_models.dart';
+import 'package:asobi/src/models/vote_models.dart';
 import 'package:asobi/src/models/realtime_models.dart';
 import 'package:asobi/src/http_client.dart';
 import 'package:asobi/src/asobi_client.dart';
@@ -437,13 +438,13 @@ void main() {
   });
 
   group('Notification', () {
-    test('fromJson parses correctly', () {
+    test('fromJson parses the REST record with jsonb content', () {
       final json = {
         'id': 'n1',
         'player_id': 'p1',
         'type': 'friend_request',
         'subject': 'New friend request',
-        'content': 'Bob wants to be your friend',
+        'content': {'from': 'p2', 'message': 'Bob wants to be your friend'},
         'read': false,
         'sent_at': '2026-01-01T00:00:00Z',
       };
@@ -452,8 +453,70 @@ void main() {
       expect(n.playerId, 'p1');
       expect(n.type, 'friend_request');
       expect(n.subject, 'New friend request');
-      expect(n.content, 'Bob wants to be your friend');
+      expect(n.content['message'], 'Bob wants to be your friend');
       expect(n.read, false);
+    });
+
+    test('fromJson parses the notification.new WS push (kind, no content)', () {
+      final n = Notification.fromJson({
+        'id': 'n2',
+        'kind': 'friend_request',
+        'from': 'p2',
+      });
+      expect(n.id, 'n2');
+      expect(n.type, 'friend_request');
+      expect(n.content, isEmpty);
+    });
+
+    test('fromJson tolerates a legacy string content', () {
+      final n = Notification.fromJson({'id': 'n3', 'content': 'hello'});
+      expect(n.content['text'], 'hello');
+    });
+  });
+
+  group('Vote', () {
+    test('fromJson parses the backend record shape', () {
+      final json = {
+        'id': 'v1',
+        'match_id': 'm1',
+        'template': 'mvp',
+        'method': 'plurality',
+        'options': ['p1', 'p2'],
+        'votes_cast': {'p1': 3, 'p2': 1},
+        'result': {'winner': 'p1'},
+        'distribution': {'p1': 0.75, 'p2': 0.25},
+        'turnout': 0.8,
+        'eligible_count': 5,
+        'window_ms': 30000,
+        'opened_at': '2026-01-01T00:00:00Z',
+        'closed_at': '2026-01-01T00:00:30Z',
+        'inserted_at': '2026-01-01T00:00:30Z',
+      };
+      final v = Vote.fromJson(json);
+      expect(v.id, 'v1');
+      expect(v.matchId, 'm1');
+      expect(v.template, 'mvp');
+      expect(v.method, 'plurality');
+      expect(v.options, ['p1', 'p2']);
+      expect(v.votesCast['p1'], 3);
+      expect(v.result['winner'], 'p1');
+      expect(v.turnout, 0.8);
+      expect(v.eligibleCount, 5);
+      expect(v.windowMs, 30000);
+    });
+
+    test('fromJson does not throw on a hidden vote missing optional fields', () {
+      final v = Vote.fromJson({
+        'id': 'v2',
+        'match_id': 'm1',
+        'template': 'mvp',
+        'method': 'plurality',
+        'window_ms': 30000,
+        'inserted_at': '2026-01-01T00:00:30Z',
+      });
+      expect(v.votesCast, isEmpty);
+      expect(v.turnout, 0.0);
+      expect(v.openedAt, isNull);
     });
   });
 

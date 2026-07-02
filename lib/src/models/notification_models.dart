@@ -3,7 +3,7 @@ class Notification {
   final String playerId;
   final String type;
   final String subject;
-  final String content;
+  final Map<String, dynamic> content;
   final bool read;
   final String sentAt;
 
@@ -12,7 +12,7 @@ class Notification {
     required this.playerId,
     required this.type,
     required this.subject,
-    required this.content,
+    this.content = const {},
     required this.read,
     required this.sentAt,
   });
@@ -22,10 +22,16 @@ class Notification {
         playerId: json['player_id'] as String? ?? '',
         type: (json['type'] as String?) ?? (json['kind'] as String?) ?? '',
         subject: json['subject'] as String? ?? '',
-        content: json['content'] as String? ?? '',
+        content: _content(json['content']),
         read: json['read'] as bool? ?? false,
         sentAt: json['sent_at'] as String? ?? '',
       );
+
+  static Map<String, dynamic> _content(dynamic raw) {
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is String && raw.isNotEmpty) return {'text': raw};
+    return const {};
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
