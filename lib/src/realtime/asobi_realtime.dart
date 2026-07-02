@@ -17,6 +17,7 @@ class AsobiRealtime {
   final Map<String, Completer<Map<String, dynamic>>> _pending = {};
 
   bool _autoReconnect = true;
+  bool _authExpired = false;
   int _reconnectAttempts = 0;
   static const int _maxReconnectAttempts = 10;
   static const Duration _baseReconnectDelay = Duration(seconds: 1);
@@ -26,6 +27,7 @@ class AsobiRealtime {
 
   final StreamController<void> onConnected = StreamController.broadcast();
   final StreamController<String> onDisconnected = StreamController.broadcast();
+  final StreamController<void> onAuthExpired = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onHeartbeat = StreamController.broadcast();
   final StreamController<MatchState> onMatchState = StreamController.broadcast();
   final StreamController<MatchStarted> onMatchStarted = StreamController.broadcast();
@@ -33,15 +35,9 @@ class AsobiRealtime {
   final StreamController<Map<String, dynamic>> onMatchJoined = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onMatchLeft = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onMatchmakerExpired = StreamController.broadcast();
-  final StreamController<Map<String, dynamic>> onMatchmakerFailed = StreamController.broadcast();
   final StreamController<ChatMessage> onChatMessage = StreamController.broadcast();
   final StreamController<Notification> onNotification = StreamController.broadcast();
-  final StreamController<MatchmakerMatch> onMatchmakerMatched = StreamController.broadcast();
   final StreamController<PresenceEvent> onPresenceChanged = StreamController.broadcast();
-  final StreamController<Map<String, dynamic>> onVoteStart = StreamController.broadcast();
-  final StreamController<Map<String, dynamic>> onVoteTally = StreamController.broadcast();
-  final StreamController<Map<String, dynamic>> onVoteResult = StreamController.broadcast();
-  final StreamController<Map<String, dynamic>> onVoteVetoed = StreamController.broadcast();
   final StreamController<WorldTick> onWorldTick = StreamController.broadcast();
   final StreamController<WorldTerrainChunk> onWorldTerrain = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onWorldJoined = StreamController.broadcast();
@@ -65,8 +61,18 @@ class AsobiRealtime {
 
   Future<void> connect({bool autoReconnect = true}) async {
     _autoReconnect = autoReconnect;
+    _authExpired = false;
     _reconnectAttempts = 0;
     await _connect();
+  }
+
+  /// Re-sends `session.connect` with a rotated access token so an open
+  /// socket keeps a valid session after a token refresh. Clears any prior
+  /// auth-expired state.
+  Future<void> reauthenticate(String token) async {
+    _authExpired = false;
+    if (!isConnected) return;
+    await _send('session.connect', {'token': token});
   }
 
   Future<void> _connect() async {
@@ -89,12 +95,19 @@ class AsobiRealtime {
       },
     );
 
-    await _send('session.connect', {'token': _client.sessionToken});
+    await _send('session.connect', {'token': _client.accessToken});
     _reconnectAttempts = 0;
   }
 
+  void _handleAuthExpired() {
+    _authExpired = true;
+    _autoReconnect = false;
+    _reconnectTimer?.cancel();
+    onAuthExpired.add(null);
+  }
+
   void _scheduleReconnect() {
-    if (!_autoReconnect) return;
+    if (!_autoReconnect || _authExpired) return;
     if (_reconnectAttempts >= _maxReconnectAttempts) {
       onError.add(RealtimeError(
         message: 'Max reconnect attempts ($_maxReconnectAttempts) exceeded',
@@ -227,7 +240,11 @@ class AsobiRealtime {
     if (msg.cid != null && _pending.containsKey(msg.cid)) {
       final completer = _pending.remove(msg.cid)!;
       if (msg.type == 'error') {
-        completer.completeError(AsobiException(-1, msg.payload['message'] as String? ?? 'Unknown error'));
+        completer.completeError(AsobiException(
+            -1,
+            msg.payload['reason'] as String? ??
+                msg.payload['message'] as String? ??
+                'Unknown error'));
       } else {
         completer.complete(msg.payload);
       }
@@ -248,22 +265,10 @@ class AsobiRealtime {
         onMatchFinished.add(MatchResult.fromJson(msg.payload));
       case 'match.matchmaker_expired':
         onMatchmakerExpired.add(msg.payload);
-      case 'match.matchmaker_failed':
-        onMatchmakerFailed.add(msg.payload);
-      case 'match.vote_start':
-        onVoteStart.add(msg.payload);
-      case 'match.vote_tally':
-        onVoteTally.add(msg.payload);
-      case 'match.vote_result':
-        onVoteResult.add(msg.payload);
-      case 'match.vote_vetoed':
-        onVoteVetoed.add(msg.payload);
       case 'chat.message':
         onChatMessage.add(ChatMessage.fromJson(msg.payload));
       case 'notification.new':
         onNotification.add(Notification.fromJson(msg.payload));
-      case 'match.matched':
-        onMatchmakerMatched.add(MatchmakerMatch.fromJson(msg.payload));
       case 'world.tick':
         onWorldTick.add(WorldTick.fromJson(msg.payload));
       case 'world.terrain':
@@ -296,7 +301,14 @@ class AsobiRealtime {
         onVoteVetoOk.add(msg.payload);
       case 'presence.updated':
         onPresenceChanged.add(PresenceEvent.fromJson(msg.payload));
+      case 'session.revoked':
+      case 'session_revoked':
+        _handleAuthExpired();
       case 'error':
+        final reason = msg.payload['reason'] as String?;
+        if (reason == 'invalid_token' || reason == 'session_revoked') {
+          _handleAuthExpired();
+        }
         onError.add(RealtimeError.fromJson(msg.payload));
       default:
         if (msg.type.startsWith('match.')) {

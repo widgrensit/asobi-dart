@@ -1,4 +1,7 @@
+import 'package:http/http.dart' as http_pkg;
+
 import 'http_client.dart';
+import 'token_store.dart';
 import 'api/auth.dart';
 import 'api/players.dart';
 import 'api/matchmaker.dart';
@@ -35,21 +38,24 @@ class AsobiClient {
   late final AsobiWorlds worlds;
   late final AsobiRealtime realtime;
 
-  String? _sessionToken;
   String? playerId;
 
-  String? get sessionToken => _sessionToken;
-  set sessionToken(String? value) {
-    _sessionToken = value;
-    http.sessionToken = value;
-  }
+  String? get accessToken => http.accessToken;
+  set accessToken(String? value) => http.accessToken = value;
 
-  bool get isAuthenticated => _sessionToken != null;
+  bool get isAuthenticated => http.accessToken != null;
 
-  AsobiClient(String host, {int port = 8084, bool useSsl = false})
-      : this.fromConfig(AsobiConfig(host, port: port, useSsl: useSsl));
+  Future<String?> get refreshToken => http.tokenStore.read();
+  Future<void> saveRefreshToken(String? token) => http.tokenStore.write(token);
 
-  AsobiClient.fromConfig(this.config) : http = AsobiHttpClient(config.baseUrl) {
+  AsobiClient(String host,
+      {int port = 8084, bool useSsl = false, TokenStore? tokenStore})
+      : this.fromConfig(AsobiConfig(host, port: port, useSsl: useSsl),
+            tokenStore: tokenStore);
+
+  AsobiClient.fromConfig(this.config, {http_pkg.Client? httpClient, TokenStore? tokenStore})
+      : http = AsobiHttpClient(config.baseUrl,
+            httpClient: httpClient, tokenStore: tokenStore) {
     auth = AsobiAuth(this);
     players = AsobiPlayers(this);
     matchmaker = AsobiMatchmaker(this);
@@ -65,7 +71,13 @@ class AsobiClient {
     votes = AsobiVotes(this);
     worlds = AsobiWorlds(http);
     realtime = AsobiRealtime(this);
+    http.onAccessTokenRefreshed = (token) => realtime.reauthenticate(token);
   }
+
+  /// Notifies the realtime layer that the access token rotated so the
+  /// WebSocket re-authenticates. Called after a manual [AsobiAuth.refresh].
+  void notifyAccessTokenRotated(String token) =>
+      realtime.reauthenticate(token);
 
   Future<void> dispose() async {
     await realtime.disconnect();

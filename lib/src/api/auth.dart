@@ -13,7 +13,8 @@ class AsobiAuth {
       'display_name': displayName ?? username,
     });
     final auth = AuthResponse.fromJson(resp);
-    _client.sessionToken = auth.sessionToken;
+    _client.accessToken = auth.accessToken;
+    await _client.saveRefreshToken(auth.refreshToken);
     _client.playerId = auth.playerId;
     return auth;
   }
@@ -24,7 +25,8 @@ class AsobiAuth {
       'password': password,
     });
     final auth = AuthResponse.fromJson(resp);
-    _client.sessionToken = auth.sessionToken;
+    _client.accessToken = auth.accessToken;
+    await _client.saveRefreshToken(auth.refreshToken);
     _client.playerId = auth.playerId;
     return auth;
   }
@@ -35,7 +37,8 @@ class AsobiAuth {
       'token': token,
     });
     final auth = OAuthResponse.fromJson(resp);
-    _client.sessionToken = auth.sessionToken;
+    _client.accessToken = auth.accessToken;
+    await _client.saveRefreshToken(auth.refreshToken);
     _client.playerId = auth.playerId;
     return auth;
   }
@@ -55,16 +58,27 @@ class AsobiAuth {
   }
 
   Future<RefreshResponse> refresh() async {
+    final refreshToken = await _client.refreshToken;
     final resp = await _client.http.post('/api/v1/auth/refresh', body: {
-      'session_token': _client.sessionToken,
+      'refresh_token': refreshToken,
     });
     final result = RefreshResponse.fromJson(resp);
-    _client.sessionToken = result.sessionToken;
+    _client.accessToken = result.accessToken;
+    await _client.saveRefreshToken(result.refreshToken);
+    _client.notifyAccessTokenRotated(result.accessToken);
     return result;
   }
 
-  void logout() {
-    _client.sessionToken = null;
-    _client.playerId = null;
+  Future<void> logout() async {
+    final refreshToken = await _client.refreshToken;
+    try {
+      await _client.http.post('/api/v1/auth/logout', body: {
+        if (refreshToken != null) 'refresh_token': refreshToken,
+      });
+    } finally {
+      _client.accessToken = null;
+      await _client.saveRefreshToken(null);
+      _client.playerId = null;
+    }
   }
 }

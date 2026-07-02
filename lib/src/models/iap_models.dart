@@ -23,27 +23,31 @@ class IAPResult {
 
 class OAuthResponse {
   final String playerId;
-  final String sessionToken;
+  final String accessToken;
+  final String refreshToken;
   final String username;
   final bool created;
 
   OAuthResponse({
     required this.playerId,
-    required this.sessionToken,
+    required this.accessToken,
+    required this.refreshToken,
     required this.username,
     this.created = false,
   });
 
   factory OAuthResponse.fromJson(Map<String, dynamic> json) => OAuthResponse(
         playerId: json['player_id'] as String,
-        sessionToken: json['session_token'] as String,
+        accessToken: json['access_token'] as String,
+        refreshToken: json['refresh_token'] as String,
         username: json['username'] as String,
         created: json['created'] as bool? ?? false,
       );
 
   Map<String, dynamic> toJson() => {
         'player_id': playerId,
-        'session_token': sessionToken,
+        'access_token': accessToken,
+        'refresh_token': refreshToken,
         'username': username,
         'created': created,
       };

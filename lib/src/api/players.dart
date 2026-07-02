@@ -10,10 +10,16 @@ class AsobiPlayers {
     return Player.fromJson(resp);
   }
 
-  Future<Player> update(String playerId, {String? displayName, String? avatarUrl}) async {
+  Future<Player> update(
+    String playerId, {
+    String? displayName,
+    String? avatarUrl,
+    Map<String, dynamic>? metadata,
+  }) async {
     final body = <String, dynamic>{};
     if (displayName != null) body['display_name'] = displayName;
     if (avatarUrl != null) body['avatar_url'] = avatarUrl;
+    if (metadata != null) body['metadata'] = metadata;
     final resp = await _client.http.put('/api/v1/players/$playerId', body: body);
     return Player.fromJson(resp);
   }

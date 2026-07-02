@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:test/test.dart';
+
+import 'package:asobi/src/token_store.dart';
 
 import 'package:asobi/src/models/auth_models.dart';
 import 'package:asobi/src/models/iap_models.dart';
@@ -18,30 +21,34 @@ import 'package:asobi/src/asobi_client.dart';
 
 void main() {
   group('AuthResponse', () {
-    test('fromJson parses correctly', () {
+    test('fromJson parses token pair', () {
       final json = {
         'player_id': 'p1',
-        'session_token': 'tok123',
+        'access_token': 'access123',
+        'refresh_token': 'refresh123',
         'username': 'alice',
       };
       final r = AuthResponse.fromJson(json);
       expect(r.playerId, 'p1');
-      expect(r.sessionToken, 'tok123');
+      expect(r.accessToken, 'access123');
+      expect(r.refreshToken, 'refresh123');
       expect(r.username, 'alice');
     });
   });
 
   group('OAuthResponse', () {
-    test('fromJson parses correctly', () {
+    test('fromJson parses token pair', () {
       final json = {
         'player_id': 'p2',
-        'session_token': 'oauth-tok',
+        'access_token': 'oauth-access',
+        'refresh_token': 'oauth-refresh',
         'username': 'bob',
         'created': true,
       };
       final r = OAuthResponse.fromJson(json);
       expect(r.playerId, 'p2');
-      expect(r.sessionToken, 'oauth-tok');
+      expect(r.accessToken, 'oauth-access');
+      expect(r.refreshToken, 'oauth-refresh');
       expect(r.username, 'bob');
       expect(r.created, true);
     });
@@ -49,7 +56,8 @@ void main() {
     test('fromJson defaults created to false', () {
       final json = {
         'player_id': 'p2',
-        'session_token': 'tok',
+        'access_token': 'a',
+        'refresh_token': 'r',
         'username': 'bob',
       };
       final r = OAuthResponse.fromJson(json);
@@ -58,11 +66,11 @@ void main() {
   });
 
   group('RefreshResponse', () {
-    test('fromJson parses correctly', () {
-      final json = {'player_id': 'p3', 'session_token': 'refresh-tok'};
+    test('fromJson parses rotated token pair', () {
+      final json = {'access_token': 'new-access', 'refresh_token': 'new-refresh'};
       final r = RefreshResponse.fromJson(json);
-      expect(r.playerId, 'p3');
-      expect(r.sessionToken, 'refresh-tok');
+      expect(r.accessToken, 'new-access');
+      expect(r.refreshToken, 'new-refresh');
     });
   });
 
@@ -526,15 +534,14 @@ void main() {
   });
 
   group('AsobiHttpClient', () {
-    test('sets Authorization header when sessionToken is set', () {
+    test('sets Authorization header when accessToken is set', () {
       final client = AsobiHttpClient('http://localhost:8080');
-      client.sessionToken = 'my-token';
-      // Access headers via the getter (it's a computed map)
+      client.accessToken = 'my-token';
       final headers = client.headers;
       expect(headers['Authorization'], 'Bearer my-token');
     });
 
-    test('omits Authorization header when sessionToken is null', () {
+    test('omits Authorization header when accessToken is null', () {
       final client = AsobiHttpClient('http://localhost:8080');
       final headers = client.headers;
       expect(headers.containsKey('Authorization'), false);
@@ -620,19 +627,272 @@ void main() {
       expect(client.realtime, isNotNull);
     });
 
-    test('sessionToken propagates to http client', () {
+    test('accessToken propagates to http client', () {
       final client = AsobiClient('localhost');
-      expect(client.http.sessionToken, isNull);
-      client.sessionToken = 'abc123';
-      expect(client.http.sessionToken, 'abc123');
+      expect(client.http.accessToken, isNull);
+      client.accessToken = 'abc123';
+      expect(client.http.accessToken, 'abc123');
     });
 
-    test('isAuthenticated reflects token state', () {
+    test('isAuthenticated reflects access token state', () {
       final client = AsobiClient('localhost');
       expect(client.isAuthenticated, false);
-      client.sessionToken = 'tok';
+      client.accessToken = 'tok';
       expect(client.isAuthenticated, true);
-      client.sessionToken = null;
+      client.accessToken = null;
+      expect(client.isAuthenticated, false);
+    });
+  });
+
+  group('AsobiPlayers.update', () {
+    test('sends metadata alongside display_name and avatar_url', () async {
+      Map<String, dynamic>? sentBody;
+      final mock = MockClient((req) async {
+        expect(req.url.path, '/api/v1/players/p1');
+        expect(req.method, 'PUT');
+        sentBody = jsonDecode(req.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode({
+            'id': 'p1',
+            'username': 'alice',
+            'display_name': 'Alice',
+            'metadata': {'level': 7},
+            'inserted_at': '2026-01-01T00:00:00Z',
+            'updated_at': '2026-01-02T00:00:00Z',
+          }),
+          200,
+        );
+      });
+      final client = AsobiClient.fromConfig(AsobiConfig('localhost'),
+          httpClient: mock, tokenStore: InMemoryTokenStore());
+      client.accessToken = 'access-1';
+
+      await client.players.update(
+        'p1',
+        displayName: 'Alice',
+        avatarUrl: 'https://example.com/a.png',
+        metadata: {'level': 7},
+      );
+
+      expect(sentBody!['display_name'], 'Alice');
+      expect(sentBody!['avatar_url'], 'https://example.com/a.png');
+      expect(sentBody!['metadata'], {'level': 7});
+    });
+
+    test('omits metadata when not provided', () async {
+      Map<String, dynamic>? sentBody;
+      final mock = MockClient((req) async {
+        sentBody = jsonDecode(req.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode({
+            'id': 'p1',
+            'username': 'alice',
+            'display_name': 'Alice',
+            'inserted_at': '2026-01-01T00:00:00Z',
+            'updated_at': '2026-01-02T00:00:00Z',
+          }),
+          200,
+        );
+      });
+      final client = AsobiClient.fromConfig(AsobiConfig('localhost'),
+          httpClient: mock, tokenStore: InMemoryTokenStore());
+      client.accessToken = 'access-1';
+
+      await client.players.update('p1', displayName: 'Alice');
+
+      expect(sentBody!.containsKey('metadata'), false);
+    });
+  });
+
+  group('RealtimeError', () {
+    test('fromJson prefers reason over message and error', () {
+      final e = RealtimeError.fromJson({
+        'reason': 'invalid_message',
+        'message': 'ignored',
+        'error': 'ignored',
+      });
+      expect(e.message, 'invalid_message');
+    });
+
+    test('fromJson falls back to message then error', () {
+      expect(RealtimeError.fromJson({'message': 'boom'}).message, 'boom');
+      expect(RealtimeError.fromJson({'error': 'bang'}).message, 'bang');
+      expect(RealtimeError.fromJson(<String, dynamic>{}).message, 'Unknown error');
+    });
+  });
+
+  group('AsobiRealtime error dispatch', () {
+    test('onError surfaces payload.reason', () async {
+      final client = AsobiClient('localhost');
+      final got = client.realtime.onError.stream.first;
+      client.realtime.debugHandleMessage(
+        '{"type":"error","payload":{"reason":"rate_limited"}}',
+      );
+      final err = await got.timeout(const Duration(seconds: 1));
+      expect(err.message, 'rate_limited');
+    });
+  });
+
+  group('InMemoryTokenStore', () {
+    test('write/read/clear round-trips the refresh token', () async {
+      final store = InMemoryTokenStore();
+      expect(await store.read(), isNull);
+      await store.write('refresh-1');
+      expect(await store.read(), 'refresh-1');
+      await store.clear();
+      expect(await store.read(), isNull);
+    });
+  });
+
+  group('401 refresh interceptor', () {
+    test('refreshes token pair and retries the original request once', () async {
+      var protectedCalls = 0;
+      var refreshCalls = 0;
+      final mock = MockClient((req) async {
+        if (req.url.path == '/api/v1/players/me') {
+          protectedCalls++;
+          if (req.headers['Authorization'] == 'Bearer new-access') {
+            return http.Response(jsonEncode({'ok': true}), 200);
+          }
+          return http.Response(jsonEncode({'error': 'invalid_token'}), 401);
+        }
+        if (req.url.path == '/api/v1/auth/refresh') {
+          refreshCalls++;
+          expect(jsonDecode(req.body)['refresh_token'], 'refresh-1');
+          return http.Response(
+            jsonEncode({'access_token': 'new-access', 'refresh_token': 'refresh-2'}),
+            200,
+          );
+        }
+        return http.Response('{}', 404);
+      });
+      final store = InMemoryTokenStore();
+      await store.write('refresh-1');
+      final client =
+          AsobiHttpClient('http://x', httpClient: mock, tokenStore: store);
+      client.accessToken = 'old-access';
+
+      final result = await client.get('/api/v1/players/me');
+
+      expect(result['ok'], true);
+      expect(protectedCalls, 2);
+      expect(refreshCalls, 1);
+      expect(client.accessToken, 'new-access');
+      expect(await store.read(), 'refresh-2');
+    });
+
+    test('surfaces AsobiAuthExpiredException when refresh fails', () async {
+      final mock = MockClient((req) async {
+        if (req.url.path == '/api/v1/auth/refresh') {
+          return http.Response(jsonEncode({'error': 'invalid_token'}), 401);
+        }
+        return http.Response(jsonEncode({'error': 'invalid_token'}), 401);
+      });
+      final store = InMemoryTokenStore();
+      await store.write('refresh-dead');
+      final client =
+          AsobiHttpClient('http://x', httpClient: mock, tokenStore: store);
+      client.accessToken = 'old-access';
+
+      expect(
+        () => client.get('/api/v1/players/me'),
+        throwsA(isA<AsobiAuthExpiredException>()),
+      );
+    });
+
+    test('does not attempt refresh for /auth/ paths', () async {
+      var refreshCalls = 0;
+      final mock = MockClient((req) async {
+        if (req.url.path == '/api/v1/auth/refresh') refreshCalls++;
+        return http.Response(jsonEncode({'error': 'invalid_credentials'}), 401);
+      });
+      final store = InMemoryTokenStore();
+      await store.write('refresh-1');
+      final client =
+          AsobiHttpClient('http://x', httpClient: mock, tokenStore: store);
+
+      expect(
+        () => client.post('/api/v1/auth/login', body: {'username': 'a'}),
+        throwsA(isA<AsobiException>()
+            .having((e) => e.statusCode, 'statusCode', 401)),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(refreshCalls, 0);
+    });
+  });
+
+  group('AsobiAuth flow', () {
+    test('login stores both tokens and player id', () async {
+      final mock = MockClient((req) async {
+        expect(req.url.path, '/api/v1/auth/login');
+        return http.Response(
+          jsonEncode({
+            'player_id': 'p1',
+            'access_token': 'access-1',
+            'refresh_token': 'refresh-1',
+            'username': 'alice',
+          }),
+          200,
+        );
+      });
+      final client = AsobiClient.fromConfig(AsobiConfig('localhost'),
+          httpClient: mock, tokenStore: InMemoryTokenStore());
+
+      final auth = await client.auth.login('alice', 'pw');
+
+      expect(auth.accessToken, 'access-1');
+      expect(client.accessToken, 'access-1');
+      expect(await client.refreshToken, 'refresh-1');
+      expect(client.playerId, 'p1');
+      expect(client.isAuthenticated, true);
+    });
+
+    test('refresh rotates and stores the new token pair', () async {
+      final mock = MockClient((req) async {
+        expect(req.url.path, '/api/v1/auth/refresh');
+        expect(jsonDecode(req.body)['refresh_token'], 'refresh-1');
+        return http.Response(
+          jsonEncode({'access_token': 'access-2', 'refresh_token': 'refresh-2'}),
+          200,
+        );
+      });
+      final store = InMemoryTokenStore();
+      await store.write('refresh-1');
+      final client = AsobiClient.fromConfig(AsobiConfig('localhost'),
+          httpClient: mock, tokenStore: store);
+      client.accessToken = 'access-1';
+
+      final result = await client.auth.refresh();
+
+      expect(result.accessToken, 'access-2');
+      expect(result.refreshToken, 'refresh-2');
+      expect(client.accessToken, 'access-2');
+      expect(await store.read(), 'refresh-2');
+    });
+
+    test('logout posts refresh token with bearer and clears tokens', () async {
+      Map<String, dynamic>? logoutBody;
+      String? logoutAuth;
+      final mock = MockClient((req) async {
+        expect(req.url.path, '/api/v1/auth/logout');
+        logoutBody = jsonDecode(req.body) as Map<String, dynamic>;
+        logoutAuth = req.headers['Authorization'];
+        return http.Response(jsonEncode({'success': true}), 200);
+      });
+      final store = InMemoryTokenStore();
+      await store.write('refresh-1');
+      final client = AsobiClient.fromConfig(AsobiConfig('localhost'),
+          httpClient: mock, tokenStore: store);
+      client.accessToken = 'access-1';
+      client.playerId = 'p1';
+
+      await client.auth.logout();
+
+      expect(logoutBody!['refresh_token'], 'refresh-1');
+      expect(logoutAuth, 'Bearer access-1');
+      expect(client.accessToken, isNull);
+      expect(await store.read(), isNull);
+      expect(client.playerId, isNull);
       expect(client.isAuthenticated, false);
     });
   });

@@ -2,8 +2,10 @@
 // realtime message handler and asserts the right stream fires.
 //
 // Pure unit test — no network. Catches the doc-vs-server drift class of
-// bugs (e.g. server emits `match.matched` but SDK only listens for
-// `matchmaker.matched`) before any user reports a silent failure.
+// bugs (a fixture with no dispatch mapping, or a mapping with no fixture)
+// before any user reports a silent failure. Custom/unenumerated match.*
+// and world.* events flow through the generic passthrough (see the
+// passthrough group below).
 
 import 'dart:async';
 import 'dart:convert';
@@ -28,8 +30,6 @@ Stream<dynamic> streamFor(AsobiRealtime rt, String type) {
       return rt.onHeartbeat.stream;
     case 'match.state':
       return rt.onMatchState.stream;
-    case 'match.matched':
-      return rt.onMatchmakerMatched.stream;
     case 'match.joined':
       return rt.onMatchJoined.stream;
     case 'match.left':
@@ -38,16 +38,6 @@ Stream<dynamic> streamFor(AsobiRealtime rt, String type) {
       return rt.onMatchFinished.stream;
     case 'match.matchmaker_expired':
       return rt.onMatchmakerExpired.stream;
-    case 'match.matchmaker_failed':
-      return rt.onMatchmakerFailed.stream;
-    case 'match.vote_start':
-      return rt.onVoteStart.stream;
-    case 'match.vote_tally':
-      return rt.onVoteTally.stream;
-    case 'match.vote_result':
-      return rt.onVoteResult.stream;
-    case 'match.vote_vetoed':
-      return rt.onVoteVetoed.stream;
     case 'matchmaker.queued':
       return rt.onMatchmakerQueued.stream;
     case 'matchmaker.removed':
@@ -93,16 +83,10 @@ const expectedTypes = <String>{
   'session.connected',
   'session.heartbeat',
   'match.state',
-  'match.matched',
   'match.joined',
   'match.left',
   'match.finished',
   'match.matchmaker_expired',
-  'match.matchmaker_failed',
-  'match.vote_start',
-  'match.vote_tally',
-  'match.vote_result',
-  'match.vote_vetoed',
   'matchmaker.queued',
   'matchmaker.removed',
   'chat.joined',
@@ -190,5 +174,27 @@ void main() {
         await sub.cancel();
       });
     }
+  });
+
+  group('generic passthrough', () {
+    test('unenumerated match.* reaches onMatchEvent', () async {
+      final client = AsobiClient('localhost');
+      final got = client.realtime.onMatchEvent.stream.first;
+      client.realtime.debugHandleMessage(
+        '{"type":"match.matched","payload":{"match_id":"m1"}}',
+      );
+      final payload = await got.timeout(const Duration(seconds: 1));
+      expect(payload['match_id'], 'm1');
+    });
+
+    test('unenumerated world.* reaches onWorldEvent', () async {
+      final client = AsobiClient('localhost');
+      final got = client.realtime.onWorldEvent.stream.first;
+      client.realtime.debugHandleMessage(
+        '{"type":"world.custom","payload":{"world_id":"w1"}}',
+      );
+      final payload = await got.timeout(const Duration(seconds: 1));
+      expect(payload['world_id'], 'w1');
+    });
   });
 }
