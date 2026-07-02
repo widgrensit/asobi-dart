@@ -644,6 +644,95 @@ void main() {
     });
   });
 
+  group('AsobiPlayers.update', () {
+    test('sends metadata alongside display_name and avatar_url', () async {
+      Map<String, dynamic>? sentBody;
+      final mock = MockClient((req) async {
+        expect(req.url.path, '/api/v1/players/p1');
+        expect(req.method, 'PUT');
+        sentBody = jsonDecode(req.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode({
+            'id': 'p1',
+            'username': 'alice',
+            'display_name': 'Alice',
+            'metadata': {'level': 7},
+            'inserted_at': '2026-01-01T00:00:00Z',
+            'updated_at': '2026-01-02T00:00:00Z',
+          }),
+          200,
+        );
+      });
+      final client = AsobiClient.fromConfig(AsobiConfig('localhost'),
+          httpClient: mock, tokenStore: InMemoryTokenStore());
+      client.accessToken = 'access-1';
+
+      await client.players.update(
+        'p1',
+        displayName: 'Alice',
+        avatarUrl: 'https://example.com/a.png',
+        metadata: {'level': 7},
+      );
+
+      expect(sentBody!['display_name'], 'Alice');
+      expect(sentBody!['avatar_url'], 'https://example.com/a.png');
+      expect(sentBody!['metadata'], {'level': 7});
+    });
+
+    test('omits metadata when not provided', () async {
+      Map<String, dynamic>? sentBody;
+      final mock = MockClient((req) async {
+        sentBody = jsonDecode(req.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode({
+            'id': 'p1',
+            'username': 'alice',
+            'display_name': 'Alice',
+            'inserted_at': '2026-01-01T00:00:00Z',
+            'updated_at': '2026-01-02T00:00:00Z',
+          }),
+          200,
+        );
+      });
+      final client = AsobiClient.fromConfig(AsobiConfig('localhost'),
+          httpClient: mock, tokenStore: InMemoryTokenStore());
+      client.accessToken = 'access-1';
+
+      await client.players.update('p1', displayName: 'Alice');
+
+      expect(sentBody!.containsKey('metadata'), false);
+    });
+  });
+
+  group('RealtimeError', () {
+    test('fromJson prefers reason over message and error', () {
+      final e = RealtimeError.fromJson({
+        'reason': 'invalid_message',
+        'message': 'ignored',
+        'error': 'ignored',
+      });
+      expect(e.message, 'invalid_message');
+    });
+
+    test('fromJson falls back to message then error', () {
+      expect(RealtimeError.fromJson({'message': 'boom'}).message, 'boom');
+      expect(RealtimeError.fromJson({'error': 'bang'}).message, 'bang');
+      expect(RealtimeError.fromJson(<String, dynamic>{}).message, 'Unknown error');
+    });
+  });
+
+  group('AsobiRealtime error dispatch', () {
+    test('onError surfaces payload.reason', () async {
+      final client = AsobiClient('localhost');
+      final got = client.realtime.onError.stream.first;
+      client.realtime.debugHandleMessage(
+        '{"type":"error","payload":{"reason":"rate_limited"}}',
+      );
+      final err = await got.timeout(const Duration(seconds: 1));
+      expect(err.message, 'rate_limited');
+    });
+  });
+
   group('InMemoryTokenStore', () {
     test('write/read/clear round-trips the refresh token', () async {
       final store = InMemoryTokenStore();

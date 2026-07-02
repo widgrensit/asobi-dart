@@ -168,34 +168,6 @@ class MatchResult {
       };
 }
 
-class MatchmakerMatch {
-  final String matchId;
-  final String mode;
-  final List<String> playerIds;
-
-  MatchmakerMatch({
-    required this.matchId,
-    required this.mode,
-    required this.playerIds,
-  });
-
-  factory MatchmakerMatch.fromJson(Map<String, dynamic> json) =>
-      MatchmakerMatch(
-        matchId: json['match_id'] as String,
-        mode: json['mode'] as String? ?? 'default',
-        playerIds: (json['player_ids'] as List<dynamic>?)
-                ?.map((playerId) => playerId as String)
-                .toList() ??
-            [],
-      );
-
-  Map<String, dynamic> toJson() => {
-        'match_id': matchId,
-        'mode': mode,
-        'player_ids': playerIds,
-      };
-}
-
 class PresenceEvent {
   final String playerId;
   final String status;
@@ -220,7 +192,10 @@ class RealtimeError {
   RealtimeError({required this.message, this.code});
 
   factory RealtimeError.fromJson(Map<String, dynamic> json) => RealtimeError(
-        message: json['message'] as String? ?? json['error'] as String? ?? 'Unknown error',
+        message: json['reason'] as String? ??
+            json['message'] as String? ??
+            json['error'] as String? ??
+            'Unknown error',
         code: json['code'] as int?,
       );
 

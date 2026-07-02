@@ -34,9 +34,10 @@ Future<void> main() async {
     print('Tick — ${state.players.length} players');
   });
 
-  // Print match-found events.
-  client.realtime.onMatchmakerMatched.stream.listen((data) {
-    print('Match found: ${data.matchId}');
+  // Print match events (match.matched, match.finished, ...). The backend
+  // broadcasts generic match.<Event>; onMatchEvent carries each payload.
+  client.realtime.onMatchEvent.stream.listen((payload) {
+    print('Match event: ${payload['match_id']}');
   });
 
   await client.realtime.connect();

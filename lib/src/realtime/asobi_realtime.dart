@@ -35,15 +35,9 @@ class AsobiRealtime {
   final StreamController<Map<String, dynamic>> onMatchJoined = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onMatchLeft = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onMatchmakerExpired = StreamController.broadcast();
-  final StreamController<Map<String, dynamic>> onMatchmakerFailed = StreamController.broadcast();
   final StreamController<ChatMessage> onChatMessage = StreamController.broadcast();
   final StreamController<Notification> onNotification = StreamController.broadcast();
-  final StreamController<MatchmakerMatch> onMatchmakerMatched = StreamController.broadcast();
   final StreamController<PresenceEvent> onPresenceChanged = StreamController.broadcast();
-  final StreamController<Map<String, dynamic>> onVoteStart = StreamController.broadcast();
-  final StreamController<Map<String, dynamic>> onVoteTally = StreamController.broadcast();
-  final StreamController<Map<String, dynamic>> onVoteResult = StreamController.broadcast();
-  final StreamController<Map<String, dynamic>> onVoteVetoed = StreamController.broadcast();
   final StreamController<WorldTick> onWorldTick = StreamController.broadcast();
   final StreamController<WorldTerrainChunk> onWorldTerrain = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onWorldJoined = StreamController.broadcast();
@@ -246,7 +240,11 @@ class AsobiRealtime {
     if (msg.cid != null && _pending.containsKey(msg.cid)) {
       final completer = _pending.remove(msg.cid)!;
       if (msg.type == 'error') {
-        completer.completeError(AsobiException(-1, msg.payload['message'] as String? ?? 'Unknown error'));
+        completer.completeError(AsobiException(
+            -1,
+            msg.payload['reason'] as String? ??
+                msg.payload['message'] as String? ??
+                'Unknown error'));
       } else {
         completer.complete(msg.payload);
       }
@@ -267,22 +265,10 @@ class AsobiRealtime {
         onMatchFinished.add(MatchResult.fromJson(msg.payload));
       case 'match.matchmaker_expired':
         onMatchmakerExpired.add(msg.payload);
-      case 'match.matchmaker_failed':
-        onMatchmakerFailed.add(msg.payload);
-      case 'match.vote_start':
-        onVoteStart.add(msg.payload);
-      case 'match.vote_tally':
-        onVoteTally.add(msg.payload);
-      case 'match.vote_result':
-        onVoteResult.add(msg.payload);
-      case 'match.vote_vetoed':
-        onVoteVetoed.add(msg.payload);
       case 'chat.message':
         onChatMessage.add(ChatMessage.fromJson(msg.payload));
       case 'notification.new':
         onNotification.add(Notification.fromJson(msg.payload));
-      case 'match.matched':
-        onMatchmakerMatched.add(MatchmakerMatch.fromJson(msg.payload));
       case 'world.tick':
         onWorldTick.add(WorldTick.fromJson(msg.payload));
       case 'world.terrain':
