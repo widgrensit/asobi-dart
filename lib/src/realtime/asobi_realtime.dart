@@ -30,7 +30,7 @@ class AsobiRealtime {
   final StreamController<void> onAuthExpired = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onHeartbeat = StreamController.broadcast();
   final StreamController<MatchState> onMatchState = StreamController.broadcast();
-  final StreamController<MatchStarted> onMatchStarted = StreamController.broadcast();
+  final StreamController<MatchmakerMatch> onMatchmakerMatched = StreamController.broadcast();
   final StreamController<MatchResult> onMatchFinished = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onMatchJoined = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onMatchLeft = StreamController.broadcast();
@@ -257,6 +257,9 @@ class AsobiRealtime {
         onHeartbeat.add(msg.payload);
       case 'match.state':
         onMatchState.add(MatchState.fromJson(msg.payload));
+      case 'match.matched':
+      case 'matchmaker.matched':
+        onMatchmakerMatched.add(MatchmakerMatch.fromJson(msg.payload));
       case 'match.joined':
         onMatchJoined.add(msg.payload);
       case 'match.left':

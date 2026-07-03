@@ -122,20 +122,26 @@ class MatchState {
       };
 }
 
-class MatchStarted {
+/// Delivered on [AsobiRealtime.onMatchmakerMatched] when the matchmaker places
+/// you into a match (server `match.matched`). The matchmaker auto-places you -
+/// no explicit join is needed; `match.state` starts flowing on its own.
+class MatchmakerMatch {
   final String matchId;
-  final String mode;
+  final List<String> players;
 
-  MatchStarted({required this.matchId, required this.mode});
+  MatchmakerMatch({required this.matchId, this.players = const []});
 
-  factory MatchStarted.fromJson(Map<String, dynamic> json) => MatchStarted(
-        matchId: json['match_id'] as String,
-        mode: json['mode'] as String? ?? 'default',
-      );
+  factory MatchmakerMatch.fromJson(Map<String, dynamic> json) {
+    final p = json['players'];
+    return MatchmakerMatch(
+      matchId: json['match_id'] as String,
+      players: p is List ? p.map((e) => e.toString()).toList() : const [],
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'match_id': matchId,
-        'mode': mode,
+        'players': players,
       };
 }
 
