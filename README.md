@@ -48,11 +48,10 @@ Future<void> main() async {
     if (!connected.isCompleted) connected.complete();
   });
 
-  // Server pushes match.matched (matchmaker push) or match.joined (reply to a
-  // client-initiated match.join). Subscribe to both for the matchmade flow.
-  client.realtime.onMatchmakerMatched.stream.listen((m) async {
-    print('Matched into ${m.matchId} — joining…');
-    await client.realtime.joinMatch(m.matchId);
+  // The matchmaker places you into a match and pushes match.matched. It
+  // auto-places you, so there is no join step - match.state starts flowing.
+  client.realtime.onMatchmakerMatched.stream.listen((m) {
+    print('Matched into ${m.matchId}');
   });
 
   client.realtime.onMatchState.stream.listen((state) {

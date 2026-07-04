@@ -181,10 +181,21 @@ void main() {
       final client = AsobiClient('localhost');
       final got = client.realtime.onMatchEvent.stream.first;
       client.realtime.debugHandleMessage(
-        '{"type":"match.matched","payload":{"match_id":"m1"}}',
+        '{"type":"match.custom","payload":{"foo":"bar"}}',
       );
       final payload = await got.timeout(const Duration(seconds: 1));
-      expect(payload['match_id'], 'm1');
+      expect(payload['foo'], 'bar');
+    });
+
+    test('match.matched reaches typed onMatchmakerMatched', () async {
+      final client = AsobiClient('localhost');
+      final got = client.realtime.onMatchmakerMatched.stream.first;
+      client.realtime.debugHandleMessage(
+        '{"type":"match.matched","payload":{"match_id":"m1","players":["p1","p2"]}}',
+      );
+      final match = await got.timeout(const Duration(seconds: 1));
+      expect(match.matchId, 'm1');
+      expect(match.players, ['p1', 'p2']);
     });
 
     test('unenumerated world.* reaches onWorldEvent', () async {

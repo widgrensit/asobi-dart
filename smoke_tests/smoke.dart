@@ -28,13 +28,13 @@ Future<void> main() async {
   final b = await _spawnPlayer('b', url);
   _log('Registered: ${a.playerId} | ${b.playerId}');
 
-  // Attach match-event listeners BEFORE queuing to avoid a race with the
-  // server pairing us immediately. The backend broadcasts generic
-  // match.<Event> (e.g. match.matched); onMatchEvent carries each payload.
+  // Attach match listeners BEFORE queuing to avoid a race with the server
+  // pairing us immediately. The matchmaker pushes match.matched, which the
+  // SDK surfaces on the typed onMatchmakerMatched stream.
   final matchedA =
-      a.client.realtime.onMatchEvent.stream.first.timeout(_matchJoinTimeout);
+      a.client.realtime.onMatchmakerMatched.stream.first.timeout(_matchJoinTimeout);
   final matchedB =
-      b.client.realtime.onMatchEvent.stream.first.timeout(_matchJoinTimeout);
+      b.client.realtime.onMatchmakerMatched.stream.first.timeout(_matchJoinTimeout);
 
   await a.client.realtime.addToMatchmaker(mode: _matchMode);
   await b.client.realtime.addToMatchmaker(mode: _matchMode);
@@ -42,11 +42,11 @@ Future<void> main() async {
 
   final matchA = await matchedA;
   final matchB = await matchedB;
-  _log('Both matched, match_id = ${matchA['match_id']}');
+  _log('Both matched, match_id = ${matchA.matchId}');
 
-  if (matchA['match_id'] != matchB['match_id']) {
+  if (matchA.matchId != matchB.matchId) {
     throw Exception(
-      'match_id mismatch: ${matchA['match_id']} vs ${matchB['match_id']}',
+      'match_id mismatch: ${matchA.matchId} vs ${matchB.matchId}',
     );
   }
 
