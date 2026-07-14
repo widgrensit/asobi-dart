@@ -43,6 +43,30 @@ class AsobiAuth {
     return auth;
   }
 
+  Future<AuthResponse> guest(String deviceId, String deviceSecret) async {
+    final resp = await _client.http.post('/api/v1/auth/guest', body: {
+      'device_id': deviceId,
+      'device_secret': deviceSecret,
+    });
+    final auth = AuthResponse.fromJson(resp);
+    _client.accessToken = auth.accessToken;
+    await _client.saveRefreshToken(auth.refreshToken);
+    _client.playerId = auth.playerId;
+    return auth;
+  }
+
+  Future<AuthResponse> upgradeGuest(String username, String password) async {
+    final resp = await _client.http.post('/api/v1/auth/guest/upgrade', body: {
+      'username': username,
+      'password': password,
+    });
+    final auth = AuthResponse.fromJson(resp);
+    _client.accessToken = auth.accessToken;
+    await _client.saveRefreshToken(auth.refreshToken);
+    _client.playerId = auth.playerId;
+    return auth;
+  }
+
   Future<LinkResponse> linkProvider(String provider, String token) async {
     final resp = await _client.http.post('/api/v1/auth/link', body: {
       'provider': provider,
