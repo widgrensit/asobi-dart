@@ -958,5 +958,88 @@ void main() {
       expect(client.playerId, isNull);
       expect(client.isAuthenticated, false);
     });
+
+    test('guest creates and stores both tokens and player id', () async {
+      Map<String, dynamic>? guestBody;
+      final mock = MockClient((req) async {
+        expect(req.url.path, '/api/v1/auth/guest');
+        guestBody = jsonDecode(req.body) as Map<String, dynamic>;
+        return http.Response(
+          jsonEncode({
+            'player_id': 'g1',
+            'access_token': 'guest-access',
+            'refresh_token': 'guest-refresh',
+            'username': 'guest-1',
+            'created': true,
+            'guest': true,
+          }),
+          200,
+        );
+      });
+      final client = AsobiClient.fromConfig(AsobiConfig('localhost'),
+          httpClient: mock, tokenStore: InMemoryTokenStore());
+
+      final auth = await client.auth.guest('device-1', 'c2VjcmV0');
+
+      expect(guestBody!['device_id'], 'device-1');
+      expect(guestBody!['device_secret'], 'c2VjcmV0');
+      expect(auth.accessToken, 'guest-access');
+      expect(client.accessToken, 'guest-access');
+      expect(await client.refreshToken, 'guest-refresh');
+      expect(client.playerId, 'g1');
+      expect(client.isAuthenticated, true);
+    });
+
+    test('guest surfaces backend error code', () async {
+      final mock = MockClient((req) async {
+        expect(req.url.path, '/api/v1/auth/guest');
+        return http.Response(jsonEncode({'error': 'weak_device_secret'}), 400);
+      });
+      final client = AsobiClient.fromConfig(AsobiConfig('localhost'),
+          httpClient: mock, tokenStore: InMemoryTokenStore());
+
+      expect(
+        () => client.auth.guest('device-1', 'short'),
+        throwsA(isA<AsobiException>()
+            .having((e) => e.statusCode, 'statusCode', 400)
+            .having((e) => e.message, 'message', 'weak_device_secret')),
+      );
+    });
+
+    test('upgradeGuest sends bearer and replaces stored tokens', () async {
+      Map<String, dynamic>? upgradeBody;
+      String? upgradeAuth;
+      final mock = MockClient((req) async {
+        expect(req.url.path, '/api/v1/auth/guest/upgrade');
+        upgradeBody = jsonDecode(req.body) as Map<String, dynamic>;
+        upgradeAuth = req.headers['Authorization'];
+        return http.Response(
+          jsonEncode({
+            'player_id': 'g1',
+            'access_token': 'claimed-access',
+            'refresh_token': 'claimed-refresh',
+            'username': 'alice',
+            'upgraded': true,
+          }),
+          200,
+        );
+      });
+      final store = InMemoryTokenStore();
+      await store.write('guest-refresh');
+      final client = AsobiClient.fromConfig(AsobiConfig('localhost'),
+          httpClient: mock, tokenStore: store);
+      client.accessToken = 'guest-access';
+      client.playerId = 'g1';
+
+      final auth = await client.auth.upgradeGuest('alice', 'pw');
+
+      expect(upgradeBody!['username'], 'alice');
+      expect(upgradeBody!['password'], 'pw');
+      expect(upgradeAuth, 'Bearer guest-access');
+      expect(auth.accessToken, 'claimed-access');
+      expect(client.accessToken, 'claimed-access');
+      expect(await store.read(), 'claimed-refresh');
+      expect(client.playerId, 'g1');
+    });
   });
 }

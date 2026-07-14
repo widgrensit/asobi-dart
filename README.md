@@ -66,11 +66,23 @@ Future<void> main() async {
 
 A complete runnable example is at [`example/example.dart`](example/example.dart). For an end-to-end console demo (register → matchmake → state → finish) see [`example/dart_console_demo.dart`](example/dart_console_demo.dart).
 
+## Guest / anonymous auth
+
+Sign a player in with no username or password using a device-scoped credential. Generate `deviceSecret` once (>= 32 CSPRNG bytes, base64-encoded), persist it in secure device storage, and pass it in on every call — the same `deviceId` + `deviceSecret` resumes the existing guest, a new pair creates one.
+
+```dart
+final auth = await client.auth.guest(deviceId, deviceSecret);
+// auth.playerId, auth.accessToken, auth.refreshToken now stored on the client.
+
+// Later, let the guest claim a permanent account (keeps the same player_id):
+await client.auth.upgradeGuest('player1', 'secret123');
+```
+
 ## Features
 
 | Feature | REST | WebSocket |
 |---------|------|-----------|
-| Auth | Register, login, token refresh | - |
+| Auth | Register, login, guest (create/resume + upgrade), token refresh | - |
 | Players | Profiles, updates | - |
 | Matchmaker | Queue, status, cancel | Real-time match found |
 | Matches | List, details | State sync, input, events |
