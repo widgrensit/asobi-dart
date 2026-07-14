@@ -64,6 +64,7 @@ class AsobiAuth {
     _client.accessToken = auth.accessToken;
     await _client.saveRefreshToken(auth.refreshToken);
     _client.playerId = auth.playerId;
+    _client.notifyAccessTokenRotated(auth.accessToken);
     return auth;
   }
 

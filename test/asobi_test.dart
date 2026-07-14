@@ -988,6 +988,32 @@ void main() {
       expect(await client.refreshToken, 'guest-refresh');
       expect(client.playerId, 'g1');
       expect(client.isAuthenticated, true);
+      expect(auth.guest, true);
+      expect(auth.created, true);
+      expect(auth.upgraded, false);
+    });
+
+    test('guest resume omits created flag', () async {
+      final mock = MockClient((req) async {
+        expect(req.url.path, '/api/v1/auth/guest');
+        return http.Response(
+          jsonEncode({
+            'player_id': 'g1',
+            'access_token': 'guest-access',
+            'refresh_token': 'guest-refresh',
+            'username': 'guest-1',
+            'guest': true,
+          }),
+          200,
+        );
+      });
+      final client = AsobiClient.fromConfig(AsobiConfig('localhost'),
+          httpClient: mock, tokenStore: InMemoryTokenStore());
+
+      final auth = await client.auth.guest('device-1', 'c2VjcmV0');
+
+      expect(auth.guest, true);
+      expect(auth.created, false);
     });
 
     test('guest surfaces backend error code', () async {
@@ -1040,6 +1066,7 @@ void main() {
       expect(client.accessToken, 'claimed-access');
       expect(await store.read(), 'claimed-refresh');
       expect(client.playerId, 'g1');
+      expect(auth.upgraded, true);
     });
   });
 }
