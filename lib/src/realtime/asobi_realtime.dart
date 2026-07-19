@@ -35,6 +35,7 @@ class AsobiRealtime {
   final StreamController<Map<String, dynamic>> onMatchJoined = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onMatchLeft = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onMatchmakerExpired = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onMatchmakerFailed = StreamController.broadcast();
   final StreamController<ChatMessage> onChatMessage = StreamController.broadcast();
   final StreamController<Notification> onNotification = StreamController.broadcast();
   final StreamController<PresenceEvent> onPresenceChanged = StreamController.broadcast();
@@ -54,6 +55,11 @@ class AsobiRealtime {
   final StreamController<Map<String, dynamic>> onMatchmakerRemoved = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onVoteCastOk = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onVoteVetoOk = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onVoteStart = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onVoteTally = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onVoteResult = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onVoteVetoed = StreamController.broadcast();
+  final StreamController<Map<String, dynamic>> onMatchList = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onMatchEvent = StreamController.broadcast();
   final StreamController<RealtimeError> onError = StreamController.broadcast();
 
@@ -194,6 +200,13 @@ class AsobiRealtime {
         if (hasCapacity != null) 'has_capacity': hasCapacity,
       });
 
+  /// Lists live, joinable matches, optionally filtered by mode and capacity.
+  Future<Map<String, dynamic>> listMatches({String? mode, bool? hasCapacity}) =>
+      _send('match.list', {
+        if (mode != null) 'mode': mode,
+        if (hasCapacity != null) 'has_capacity': hasCapacity,
+      });
+
   Future<void> updatePresence({String status = 'online'}) =>
       _send('presence.update', {'status': status});
 
@@ -258,7 +271,6 @@ class AsobiRealtime {
       case 'match.state':
         onMatchState.add(MatchState.fromJson(msg.payload));
       case 'match.matched':
-      case 'matchmaker.matched':
         onMatchmakerMatched.add(MatchmakerMatch.fromJson(msg.payload));
       case 'match.joined':
         onMatchJoined.add(msg.payload);
@@ -268,6 +280,10 @@ class AsobiRealtime {
         onMatchFinished.add(MatchResult.fromJson(msg.payload));
       case 'match.matchmaker_expired':
         onMatchmakerExpired.add(msg.payload);
+      case 'match.matchmaker_failed':
+        onMatchmakerFailed.add(msg.payload);
+      case 'match.list':
+        onMatchList.add(msg.payload);
       case 'chat.message':
         onChatMessage.add(ChatMessage.fromJson(msg.payload));
       case 'notification.new':
@@ -302,11 +318,16 @@ class AsobiRealtime {
         onVoteCastOk.add(msg.payload);
       case 'vote.veto_ok':
         onVoteVetoOk.add(msg.payload);
+      case 'match.vote_start':
+        onVoteStart.add(msg.payload);
+      case 'match.vote_tally':
+        onVoteTally.add(msg.payload);
+      case 'match.vote_result':
+        onVoteResult.add(msg.payload);
+      case 'match.vote_vetoed':
+        onVoteVetoed.add(msg.payload);
       case 'presence.updated':
         onPresenceChanged.add(PresenceEvent.fromJson(msg.payload));
-      case 'session.revoked':
-      case 'session_revoked':
-        _handleAuthExpired();
       case 'error':
         final reason = msg.payload['reason'] as String?;
         if (reason == 'invalid_token' || reason == 'session_revoked') {

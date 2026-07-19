@@ -3,7 +3,7 @@ class Player {
   final String username;
   final String displayName;
   final String? avatarUrl;
-  final String? bannedAt;
+  final Map<String, dynamic> metadata;
   final String insertedAt;
   final String updatedAt;
 
@@ -12,7 +12,7 @@ class Player {
     required this.username,
     required this.displayName,
     this.avatarUrl,
-    this.bannedAt,
+    this.metadata = const {},
     required this.insertedAt,
     required this.updatedAt,
   });
@@ -22,7 +22,7 @@ class Player {
         username: json['username'] as String,
         displayName: json['display_name'] as String,
         avatarUrl: json['avatar_url'] as String?,
-        bannedAt: json['banned_at'] as String?,
+        metadata: (json['metadata'] as Map<String, dynamic>?) ?? const {},
         insertedAt: json['inserted_at'] as String,
         updatedAt: json['updated_at'] as String,
       );
@@ -32,7 +32,7 @@ class Player {
         'username': username,
         'display_name': displayName,
         if (avatarUrl != null) 'avatar_url': avatarUrl,
-        if (bannedAt != null) 'banned_at': bannedAt,
+        'metadata': metadata,
         'inserted_at': insertedAt,
         'updated_at': updatedAt,
       };

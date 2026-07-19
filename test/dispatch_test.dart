@@ -38,6 +38,18 @@ Stream<dynamic> streamFor(AsobiRealtime rt, String type) {
       return rt.onMatchFinished.stream;
     case 'match.matchmaker_expired':
       return rt.onMatchmakerExpired.stream;
+    case 'match.matchmaker_failed':
+      return rt.onMatchmakerFailed.stream;
+    case 'match.list':
+      return rt.onMatchList.stream;
+    case 'match.vote_start':
+      return rt.onVoteStart.stream;
+    case 'match.vote_tally':
+      return rt.onVoteTally.stream;
+    case 'match.vote_result':
+      return rt.onVoteResult.stream;
+    case 'match.vote_vetoed':
+      return rt.onVoteVetoed.stream;
     case 'matchmaker.queued':
       return rt.onMatchmakerQueued.stream;
     case 'matchmaker.removed':
@@ -87,6 +99,12 @@ const expectedTypes = <String>{
   'match.left',
   'match.finished',
   'match.matchmaker_expired',
+  'match.matchmaker_failed',
+  'match.list',
+  'match.vote_start',
+  'match.vote_tally',
+  'match.vote_result',
+  'match.vote_vetoed',
   'matchmaker.queued',
   'matchmaker.removed',
   'chat.joined',
