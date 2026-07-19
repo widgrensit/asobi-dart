@@ -82,7 +82,7 @@ void main() {
         'username': 'alice',
         'display_name': 'Alice',
         'avatar_url': 'https://example.com/a.png',
-        'banned_at': null,
+        'metadata': {'level': 3},
         'inserted_at': '2026-01-01T00:00:00Z',
         'updated_at': '2026-01-02T00:00:00Z',
       };
@@ -91,7 +91,7 @@ void main() {
       expect(p.username, 'alice');
       expect(p.displayName, 'Alice');
       expect(p.avatarUrl, 'https://example.com/a.png');
-      expect(p.bannedAt, isNull);
+      expect(p.metadata, {'level': 3});
       expect(p.insertedAt, '2026-01-01T00:00:00Z');
       expect(p.updatedAt, '2026-01-02T00:00:00Z');
     });
@@ -106,7 +106,7 @@ void main() {
       };
       final p = Player.fromJson(json);
       expect(p.avatarUrl, isNull);
-      expect(p.bannedAt, isNull);
+      expect(p.metadata, isEmpty);
     });
   });
 
