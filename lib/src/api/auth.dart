@@ -1,4 +1,6 @@
 import '../asobi_client.dart';
+import '../device.dart';
+import '../device_stub.dart' if (dart.library.io) '../device_io.dart';
 import '../models/auth_models.dart';
 import '../models/iap_models.dart';
 
@@ -53,6 +55,29 @@ class AsobiAuth {
     await _client.saveRefreshToken(auth.refreshToken);
     _client.playerId = auth.playerId;
     return auth;
+  }
+
+  /// Opt-in convenience: load (or generate + persist) a device keypair and
+  /// sign in as a guest in one call. Equivalent to calling [guest] with a
+  /// keypair you manage yourself.
+  ///
+  /// [store] persists the keypair across launches. It defaults to the platform
+  /// store ([defaultDeviceStore]): a file under the OS app-support directory on
+  /// native, and unsupported on web - inject a `store:` there (a
+  /// `shared_preferences`-backed one) or in tests (an [InMemoryDeviceStore]).
+  /// [randomBytes] and [deviceId] are forwarded to [AsobiDevice.generate] on
+  /// first run.
+  Future<AuthResponse> guestDevice({
+    DeviceStore? store,
+    RandomBytes? randomBytes,
+    String? deviceId,
+  }) async {
+    final credentials = await AsobiDevice.loadOrCreate(
+      store ?? defaultDeviceStore(),
+      randomBytes: randomBytes,
+      deviceId: deviceId,
+    );
+    return guest(credentials.deviceId, credentials.deviceSecret);
   }
 
   Future<AuthResponse> upgradeGuest(String username, String password) async {

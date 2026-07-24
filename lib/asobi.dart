@@ -1,6 +1,8 @@
 export 'src/asobi_client.dart';
 export 'src/http_client.dart' show AsobiException, AsobiAuthExpiredException;
 export 'src/token_store.dart';
+export 'src/device.dart';
+export 'src/device_stub.dart' if (dart.library.io) 'src/device_io.dart';
 export 'src/api/auth.dart';
 export 'src/api/players.dart';
 export 'src/api/matchmaker.dart';

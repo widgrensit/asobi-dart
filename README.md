@@ -78,11 +78,41 @@ final auth = await client.auth.guest(deviceId, deviceSecret);
 await client.auth.upgradeGuest('player1', 'secret123');
 ```
 
+`deviceSecret` must be **standard base64** (RFC 4648, `+/` alphabet with `=` padding) of 32-128 random bytes — the server rejects anything shorter as `weak_device_secret`.
+
+### Guest device (managed keypair)
+
+Rather than hand-roll base64, entropy, and persistence, let the SDK manage the keypair. `guestDevice` generates a `{deviceId, deviceSecret}` pair on first run (CSPRNG via `Random.secure()`), persists it, reuses it on every launch, and signs in — all in one call:
+
+```dart
+final auth = await client.auth.guestDevice();
+if (auth.created) {
+  // brand-new guest — run first-time onboarding
+} else {
+  // returning guest — same playerId as last launch
+}
+```
+
+Persistence is pluggable via a `DeviceStore`, mirroring `TokenStore`. Standalone Dart defaults to a `FileDeviceStore` under the OS app-support directory. Inject your own — e.g. a `shared_preferences`-backed store on mobile, or an `InMemoryDeviceStore` in tests:
+
+```dart
+await client.auth.guestDevice(store: myDeviceStore);
+```
+
+To switch guest / "forget me", erase the stored pair — the next `guestDevice` mints a brand-new guest. This is local-only; pair it with `logout`, or `upgradeGuest` first if the player wants to keep the account:
+
+```dart
+await client.auth.logout();
+await AsobiDevice.clear(store);
+```
+
+Prefer to manage the keypair yourself (e.g. an OS keychain)? Skip the helper and call `guest(deviceId, deviceSecret)` directly — `AsobiDevice.generate()` still gives you a correctly-shaped pair if you only need the bytes. See [`example/guest.dart`](example/guest.dart).
+
 ## Features
 
 | Feature | REST | WebSocket |
 |---------|------|-----------|
-| Auth | Register, login, guest (create/resume + upgrade), token refresh | - |
+| Auth | Register, login, guest (create/resume + managed device keypair + upgrade), token refresh | - |
 | Players | Profiles, updates | - |
 | Matchmaker | Queue, status, cancel | Real-time match found |
 | Matches | List, details | State sync, input, events |
