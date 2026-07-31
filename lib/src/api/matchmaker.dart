@@ -5,6 +5,9 @@ class AsobiMatchmaker {
   final AsobiClient _client;
   AsobiMatchmaker(this._client);
 
+  /// Queues this player for matchmaking. [mode] defaults to `'default'` if
+  /// omitted - pass the mode you configured on the backend to queue for it
+  /// instead.
   Future<MatchmakerTicket> add({
     String mode = 'default',
     Map<String, dynamic>? properties,
