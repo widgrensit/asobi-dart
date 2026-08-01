@@ -63,6 +63,11 @@ class AsobiRealtime {
   final StreamController<Map<String, dynamic>> onMatchEvent = StreamController.broadcast();
   final StreamController<RealtimeError> onError = StreamController.broadcast();
 
+  /// Fires on `game.error` - a Lua game-script callback failure for input
+  /// this player sent. Dev-mode only (`ASOBI_DEV_ERRORS=true` server-side);
+  /// wire it up to a dev console, not production UI.
+  final StreamController<GameError> onGameError = StreamController.broadcast();
+
   AsobiRealtime(this._client);
 
   Future<void> connect({bool autoReconnect = true}) async {
@@ -328,6 +333,8 @@ class AsobiRealtime {
         onVoteVetoed.add(msg.payload);
       case 'presence.updated':
         onPresenceChanged.add(PresenceEvent.fromJson(msg.payload));
+      case 'game.error':
+        onGameError.add(GameError.fromJson(msg.payload));
       case 'error':
         final reason = msg.payload['reason'] as String?;
         if (reason == 'invalid_token' || reason == 'session_revoked') {
