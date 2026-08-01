@@ -244,10 +244,11 @@ class GameError {
 /// Delivered on [AsobiRealtime.onGameMessage] on `game.message` - a server
 /// push whenever Lua calls `game.send(player_id, message)`. Sent
 /// unconditionally in production, unlike [GameError]. `message` can be any
-/// value the script passes: a string, a number, or a JSON object/array, so
-/// it stays untyped here - don't assume it's a string.
+/// value the script passes: a string, a number, a boolean, `null`, or a
+/// JSON object/array, so it stays untyped here - don't assume it's a
+/// string.
 class GameMessage {
-  final dynamic message;
+  final Object? message;
 
   GameMessage({required this.message});
 

@@ -264,6 +264,45 @@ void main() {
       },
     );
 
+    test(
+      'game.message with a top-level array payload is not coerced or dropped',
+      () async {
+        final client = AsobiClient('localhost');
+        final got = client.realtime.onGameMessage.stream.first;
+        client.realtime.debugHandleMessage(
+          '{"type":"game.message","payload":{"message":[1,2,3]}}',
+        );
+        final msg = await got.timeout(const Duration(seconds: 1));
+        expect(msg.message, [1, 2, 3]);
+      },
+    );
+
+    test(
+      'game.message with a null payload still dispatches, not dropped',
+      () async {
+        final client = AsobiClient('localhost');
+        final got = client.realtime.onGameMessage.stream.first;
+        client.realtime.debugHandleMessage(
+          '{"type":"game.message","payload":{"message":null}}',
+        );
+        final msg = await got.timeout(const Duration(seconds: 1));
+        expect(msg.message, isNull);
+      },
+    );
+
+    test(
+      'game.message with a numeric payload is not coerced or dropped',
+      () async {
+        final client = AsobiClient('localhost');
+        final got = client.realtime.onGameMessage.stream.first;
+        client.realtime.debugHandleMessage(
+          '{"type":"game.message","payload":{"message":42}}',
+        );
+        final msg = await got.timeout(const Duration(seconds: 1));
+        expect(msg.message, 42);
+      },
+    );
+
     test('unenumerated world.* reaches onWorldEvent', () async {
       final client = AsobiClient('localhost');
       final got = client.realtime.onWorldEvent.stream.first;

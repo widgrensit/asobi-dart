@@ -70,7 +70,8 @@ class AsobiRealtime {
 
   /// Fires on `game.message` - a server push whenever Lua calls
   /// `game.send(player_id, message)`. Sent unconditionally in production.
-  final StreamController<GameMessage> onGameMessage = StreamController.broadcast();
+  final StreamController<GameMessage> onGameMessage =
+      StreamController.broadcast();
 
   AsobiRealtime(this._client);
 
