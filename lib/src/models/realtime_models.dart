@@ -214,6 +214,33 @@ class RealtimeError {
   String toString() => 'RealtimeError($message${code != null ? ', code: $code' : ''})';
 }
 
+/// Delivered on [AsobiRealtime.onGameError] when a Lua game-script callback
+/// fails while handling this player's input (server `game.error`). Dev-mode
+/// only - the server only emits this when it runs with
+/// `ASOBI_DEV_ERRORS=true`; production keeps script errors server-side.
+class GameError {
+  final String callback;
+  final String script;
+  final String message;
+
+  GameError({required this.callback, required this.script, required this.message});
+
+  factory GameError.fromJson(Map<String, dynamic> json) => GameError(
+        callback: json['callback'] as String? ?? '',
+        script: json['script'] as String? ?? '',
+        message: json['message'] as String? ?? '',
+      );
+
+  Map<String, dynamic> toJson() => {
+        'callback': callback,
+        'script': script,
+        'message': message,
+      };
+
+  @override
+  String toString() => 'GameError($script:$callback - $message)';
+}
+
 class WorldTick {
   final int tick;
   final List<EntityDelta> updates;
