@@ -26,6 +26,8 @@ Stream<dynamic> streamFor(AsobiRealtime rt, String type) {
       return rt.onError.stream;
     case 'game.error':
       return rt.onGameError.stream;
+    case 'game.message':
+      return rt.onGameMessage.stream;
     case 'session.connected':
       return rt.onConnected.stream;
     case 'session.heartbeat':
@@ -95,6 +97,7 @@ Stream<dynamic> streamFor(AsobiRealtime rt, String type) {
 const expectedTypes = <String>{
   'error',
   'game.error',
+  'game.message',
   'session.connected',
   'session.heartbeat',
   'match.state',
@@ -230,6 +233,73 @@ void main() {
         expect(err.callback, 'handle_input');
         expect(err.script, 'match.lua');
         expect(err.message, 'bad arithmetic + on nil, 1');
+      },
+    );
+
+    test(
+      'game.message fixture reaches typed onGameMessage with right value',
+      () async {
+        final client = AsobiClient('localhost');
+        final got = client.realtime.onGameMessage.stream.first;
+        final raw = File('$fixtureDir/game.message.json').readAsStringSync();
+        client.realtime.debugHandleMessage(raw);
+        final msg = await got.timeout(const Duration(seconds: 1));
+        expect(msg.message, 'jij bent speler nummer 3');
+      },
+    );
+
+    test(
+      'game.message with non-string payload is not coerced or dropped',
+      () async {
+        final client = AsobiClient('localhost');
+        final got = client.realtime.onGameMessage.stream.first;
+        client.realtime.debugHandleMessage(
+          '{"type":"game.message","payload":{"message":{"score":3,"lives":[1,2,3]}}}',
+        );
+        final msg = await got.timeout(const Duration(seconds: 1));
+        expect(msg.message, {
+          'score': 3,
+          'lives': [1, 2, 3],
+        });
+      },
+    );
+
+    test(
+      'game.message with a top-level array payload is not coerced or dropped',
+      () async {
+        final client = AsobiClient('localhost');
+        final got = client.realtime.onGameMessage.stream.first;
+        client.realtime.debugHandleMessage(
+          '{"type":"game.message","payload":{"message":[1,2,3]}}',
+        );
+        final msg = await got.timeout(const Duration(seconds: 1));
+        expect(msg.message, [1, 2, 3]);
+      },
+    );
+
+    test(
+      'game.message with a null payload still dispatches, not dropped',
+      () async {
+        final client = AsobiClient('localhost');
+        final got = client.realtime.onGameMessage.stream.first;
+        client.realtime.debugHandleMessage(
+          '{"type":"game.message","payload":{"message":null}}',
+        );
+        final msg = await got.timeout(const Duration(seconds: 1));
+        expect(msg.message, isNull);
+      },
+    );
+
+    test(
+      'game.message with a numeric payload is not coerced or dropped',
+      () async {
+        final client = AsobiClient('localhost');
+        final got = client.realtime.onGameMessage.stream.first;
+        client.realtime.debugHandleMessage(
+          '{"type":"game.message","payload":{"message":42}}',
+        );
+        final msg = await got.timeout(const Duration(seconds: 1));
+        expect(msg.message, 42);
       },
     );
 

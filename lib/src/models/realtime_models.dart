@@ -241,6 +241,26 @@ class GameError {
   String toString() => 'GameError($script:$callback - $message)';
 }
 
+/// Delivered on [AsobiRealtime.onGameMessage] on `game.message` - a server
+/// push whenever Lua calls `game.send(player_id, message)`. Sent
+/// unconditionally in production, unlike [GameError]. `message` can be any
+/// value the script passes: a string, a number, a boolean, `null`, or a
+/// JSON object/array, so it stays untyped here - don't assume it's a
+/// string.
+class GameMessage {
+  final Object? message;
+
+  GameMessage({required this.message});
+
+  factory GameMessage.fromJson(Map<String, dynamic> json) =>
+      GameMessage(message: json['message']);
+
+  Map<String, dynamic> toJson() => {'message': message};
+
+  @override
+  String toString() => 'GameMessage($message)';
+}
+
 class WorldTick {
   final int tick;
   final List<EntityDelta> updates;
