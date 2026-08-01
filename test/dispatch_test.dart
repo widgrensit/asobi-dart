@@ -219,16 +219,19 @@ void main() {
       expect(match.players, ['p1', 'p2']);
     });
 
-    test('game.error fixture reaches typed onGameError with right fields', () async {
-      final client = AsobiClient('localhost');
-      final got = client.realtime.onGameError.stream.first;
-      final raw = File('$fixtureDir/game.error.json').readAsStringSync();
-      client.realtime.debugHandleMessage(raw);
-      final err = await got.timeout(const Duration(seconds: 1));
-      expect(err.callback, 'handle_input');
-      expect(err.script, 'match.lua');
-      expect(err.message, 'bad arithmetic + on nil, 1');
-    });
+    test(
+      'game.error fixture reaches typed onGameError with right fields',
+      () async {
+        final client = AsobiClient('localhost');
+        final got = client.realtime.onGameError.stream.first;
+        final raw = File('$fixtureDir/game.error.json').readAsStringSync();
+        client.realtime.debugHandleMessage(raw);
+        final err = await got.timeout(const Duration(seconds: 1));
+        expect(err.callback, 'handle_input');
+        expect(err.script, 'match.lua');
+        expect(err.message, 'bad arithmetic + on nil, 1');
+      },
+    );
 
     test('unenumerated world.* reaches onWorldEvent', () async {
       final client = AsobiClient('localhost');
