@@ -68,6 +68,10 @@ class AsobiRealtime {
   /// wire it up to a dev console, not production UI.
   final StreamController<GameError> onGameError = StreamController.broadcast();
 
+  /// Fires on `game.message` - a server push whenever Lua calls
+  /// `game.send(player_id, message)`. Sent unconditionally in production.
+  final StreamController<GameMessage> onGameMessage = StreamController.broadcast();
+
   AsobiRealtime(this._client);
 
   Future<void> connect({bool autoReconnect = true}) async {
@@ -335,6 +339,8 @@ class AsobiRealtime {
         onPresenceChanged.add(PresenceEvent.fromJson(msg.payload));
       case 'game.error':
         onGameError.add(GameError.fromJson(msg.payload));
+      case 'game.message':
+        onGameMessage.add(GameMessage.fromJson(msg.payload));
       case 'error':
         final reason = msg.payload['reason'] as String?;
         if (reason == 'invalid_token' || reason == 'session_revoked') {
