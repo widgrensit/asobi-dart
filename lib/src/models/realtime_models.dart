@@ -219,19 +219,29 @@ class RealtimeError {
 /// only - the server only emits this when it runs with
 /// `ASOBI_DEV_ERRORS=true`; production keeps script errors server-side.
 class GameError {
+  /// Which module raised it. The server renamed these frames
+  /// `game.*` -> `module.*` so a second scripting runtime could use them, and
+  /// carries this field on both names.
+  final String module;
   final String callback;
   final String script;
   final String message;
 
-  GameError({required this.callback, required this.script, required this.message});
+  GameError(
+      {this.module = 'lua',
+      required this.callback,
+      required this.script,
+      required this.message});
 
   factory GameError.fromJson(Map<String, dynamic> json) => GameError(
+        module: json['module'] as String? ?? 'lua',
         callback: json['callback'] as String? ?? '',
         script: json['script'] as String? ?? '',
         message: json['message'] as String? ?? '',
       );
 
   Map<String, dynamic> toJson() => {
+        'module': module,
         'callback': callback,
         'script': script,
         'message': message,
@@ -248,17 +258,21 @@ class GameError {
 /// JSON object/array, so it stays untyped here - don't assume it's a
 /// string.
 class GameMessage {
+  /// Which module sent it. See [GameError.module].
+  final String module;
   final Object? message;
 
-  GameMessage({required this.message});
+  GameMessage({this.module = 'lua', required this.message});
 
-  factory GameMessage.fromJson(Map<String, dynamic> json) =>
-      GameMessage(message: json['message']);
+  factory GameMessage.fromJson(Map<String, dynamic> json) => GameMessage(
+        module: json['module'] as String? ?? 'lua',
+        message: json['message'],
+      );
 
-  Map<String, dynamic> toJson() => {'message': message};
+  Map<String, dynamic> toJson() => {'module': module, 'message': message};
 
   @override
-  String toString() => 'GameMessage($message)';
+  String toString() => 'GameMessage($module, $message)';
 }
 
 class WorldTick {
