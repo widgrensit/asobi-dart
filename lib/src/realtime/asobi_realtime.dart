@@ -234,6 +234,26 @@ class AsobiRealtime {
     _pending.clear();
   }
 
+  /// Call an extension's RPC method and await its reply.
+  ///
+  /// ```dart
+  /// final result = await rt.rpc('quests.claim', {'quest_key': 'daily'});
+  /// ```
+  ///
+  /// Correlated by `cid` like every other request, so concurrent calls are
+  /// safe and may answer out of order. `params` and the returned `result` are
+  /// always objects, so either can grow a field without breaking a shipped
+  /// client.
+  ///
+  /// Throws [AsobiRpcException] when the handler answers `rpc.error`, so a
+  /// domain outcome (`quests.already_claimed`) is catchable by code rather
+  /// than by matching on prose.
+  Future<Map<String, dynamic>> rpc(String method,
+      [Map<String, dynamic> params = const {}]) async {
+    final payload = await _send('rpc.call', debugRpcPayload(method, params));
+    return (payload['result'] as Map<String, dynamic>?) ?? const {};
+  }
+
   Future<Map<String, dynamic>> _send(String type, Map<String, dynamic> payload) {
     final cid = (++_cidCounter).toString();
     final completer = Completer<Map<String, dynamic>>();
@@ -262,7 +282,18 @@ class AsobiRealtime {
 
     if (msg.cid != null && _pending.containsKey(msg.cid)) {
       final completer = _pending.remove(msg.cid)!;
-      if (msg.type == 'error') {
+      if (msg.type == 'rpc.error') {
+        // The shared error object: {code, message, details}. Completing with
+        // a generic exception would throw away the code, which is the only
+        // part a caller can branch on.
+        final error =
+            (msg.payload['error'] as Map<String, dynamic>?) ?? const {};
+        completer.completeError(AsobiRpcException(
+          error['code'] as String? ?? 'internal',
+          error['message'] as String? ?? '',
+          (error['details'] as Map<String, dynamic>?) ?? const {},
+        ));
+      } else if (msg.type == 'error') {
         completer.completeError(AsobiException(
             -1,
             msg.payload['reason'] as String? ??
@@ -338,9 +369,14 @@ class AsobiRealtime {
         onVoteVetoed.add(msg.payload);
       case 'presence.updated':
         onPresenceChanged.add(PresenceEvent.fromJson(msg.payload));
+      // `module.*` is the current name; `game.*` is the alias the server
+      // still emits. One stream each, so a listener does not have to know
+      // which name its server is on.
       case 'game.error':
+      case 'module.error':
         onGameError.add(GameError.fromJson(msg.payload));
       case 'game.message':
+      case 'module.message':
         onGameMessage.add(GameMessage.fromJson(msg.payload));
       case 'error':
         final reason = msg.payload['reason'] as String?;
@@ -361,4 +397,17 @@ class AsobiRealtime {
   /// dispatch switch without opening a real connection. Exercised by
   /// `test/dispatch_test.dart` against the canonical fixture corpus.
   void debugHandleMessage(String raw) => _handleMessage(raw);
+
+  /// Test-only: register a pending reply under `cid` exactly as `_send` does,
+  /// so reply correlation can be exercised without opening a socket.
+  Future<Map<String, dynamic>> debugAwaitReply(String cid) {
+    final completer = Completer<Map<String, dynamic>>();
+    _pending[cid] = completer;
+    return completer.future;
+  }
+
+  /// Test-only: the `rpc.call` payload [rpc] builds, without a socket.
+  static Map<String, dynamic> debugRpcPayload(
+          String method, Map<String, dynamic> params) =>
+      {'protocol': 1, 'method': method, 'params': params};
 }

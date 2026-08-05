@@ -141,6 +141,21 @@ class AsobiException implements Exception {
   String toString() => 'AsobiException($statusCode): $message';
 }
 
+/// Thrown when an extension's RPC handler answers `rpc.error`.
+///
+/// [code] is the machine-readable half and is what you branch on; [message]
+/// is prose for a human and may change without notice.
+class AsobiRpcException implements Exception {
+  final String code;
+  final String message;
+  final Map<String, dynamic> details;
+
+  AsobiRpcException(this.code, this.message, [this.details = const {}]);
+
+  @override
+  String toString() => 'AsobiRpcException($code): $message';
+}
+
 /// Thrown when an authenticated request receives a 401 and the token
 /// refresh also fails. The app should force a re-login.
 class AsobiAuthExpiredException implements Exception {
