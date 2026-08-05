@@ -25,8 +25,10 @@ Stream<dynamic> streamFor(AsobiRealtime rt, String type) {
     case 'error':
       return rt.onError.stream;
     case 'game.error':
+    case 'module.error':
       return rt.onGameError.stream;
     case 'game.message':
+    case 'module.message':
       return rt.onGameMessage.stream;
     case 'session.connected':
       return rt.onConnected.stream;
@@ -40,6 +42,8 @@ Stream<dynamic> streamFor(AsobiRealtime rt, String type) {
       return rt.onMatchLeft.stream;
     case 'match.finished':
       return rt.onMatchFinished.stream;
+    case 'match.matched':
+      return rt.onMatchmakerMatched.stream;
     case 'match.matchmaker_expired':
       return rt.onMatchmakerExpired.stream;
     case 'match.matchmaker_failed':
@@ -94,10 +98,19 @@ Stream<dynamic> streamFor(AsobiRealtime rt, String type) {
   throw StateError('No stream mapping for $type');
 }
 
+// rpc.ok and rpc.error are replies, not events: they correlate to a pending
+// call by `cid` and never reach a stream. They have fixtures, so they are
+// named here rather than left looking like an oversight; rpc_test.dart covers
+// the correlation.
+const correlatedTypes = <String>{'rpc.ok', 'rpc.error'};
+
 const expectedTypes = <String>{
   'error',
   'game.error',
   'game.message',
+  'module.error',
+  'module.message',
+  'match.matched',
   'session.connected',
   'session.heartbeat',
   'match.state',
@@ -150,7 +163,8 @@ void main() {
   final fixtureTypes = fixtures.map(typeFromFilename).toSet();
 
   test('every fixture has an EXPECTED entry', () {
-    final missing = fixtureTypes.difference(expectedTypes);
+    final missing =
+        fixtureTypes.difference(expectedTypes).difference(correlatedTypes);
     expect(
       missing,
       isEmpty,
@@ -171,6 +185,7 @@ void main() {
   group('dispatches fixture to expected stream', () {
     for (final filename in fixtures) {
       final type = typeFromFilename(filename);
+      if (correlatedTypes.contains(type)) continue;
       test(type, () async {
         final raw = File('$fixtureDir/$filename').readAsStringSync();
         // Sanity-check the fixture is valid JSON and has matching `type`.
