@@ -275,6 +275,22 @@ class GameMessage {
   String toString() => 'GameMessage($module, $message)';
 }
 
+/// Delivered on [AsobiRealtime.onMatchEvent] / [AsobiRealtime.onWorldEvent]
+/// when a Lua script calls `game.broadcast(event, payload)`. The server sends
+/// it as `match.<event>` / `world.<event>`, so [event] is the bare name the
+/// script chose - `players_total` for `game.broadcast("players_total", ...)`.
+/// Branch on it; asobi's own broadcasts (`match.state`, `match.finished`, the
+/// `match.vote_*` family) have dedicated streams and never arrive here.
+class GameBroadcast {
+  final String event;
+  final Map<String, dynamic> payload;
+
+  GameBroadcast({required this.event, required this.payload});
+
+  @override
+  String toString() => 'GameBroadcast($event, $payload)';
+}
+
 class WorldTick {
   final int tick;
   final List<EntityDelta> updates;

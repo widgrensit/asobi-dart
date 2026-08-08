@@ -46,7 +46,10 @@ class AsobiRealtime {
   final StreamController<Map<String, dynamic>> onWorldList = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onWorldPhaseChanged = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onWorldFinished = StreamController.broadcast();
-  final StreamController<Map<String, dynamic>> onWorldEvent = StreamController.broadcast();
+  /// Fires on `world.<event>` - a world script's
+  /// `game.broadcast(event, payload)`. Carries the script-chosen event name;
+  /// see [GameBroadcast].
+  final StreamController<GameBroadcast> onWorldEvent = StreamController.broadcast();
   final StreamController<ChatMessage> onDmMessage = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onDmSent = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onChatJoined = StreamController.broadcast();
@@ -60,7 +63,10 @@ class AsobiRealtime {
   final StreamController<Map<String, dynamic>> onVoteResult = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onVoteVetoed = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onMatchList = StreamController.broadcast();
-  final StreamController<Map<String, dynamic>> onMatchEvent = StreamController.broadcast();
+  /// Fires on `match.<event>` - a match script's
+  /// `game.broadcast(event, payload)`. Carries the script-chosen event name;
+  /// see [GameBroadcast].
+  final StreamController<GameBroadcast> onMatchEvent = StreamController.broadcast();
   final StreamController<RealtimeError> onError = StreamController.broadcast();
 
   /// Fires on `game.error` - a Lua game-script callback failure for input
@@ -385,10 +391,16 @@ class AsobiRealtime {
         }
         onError.add(RealtimeError.fromJson(msg.payload));
       default:
+        // A Lua script's `game.broadcast(name, payload)`. The name is
+        // script-chosen, so it can never have a case above - strip the
+        // namespace and hand it to the listener, which has no other way to
+        // tell one broadcast from another.
         if (msg.type.startsWith('match.')) {
-          onMatchEvent.add(msg.payload);
+          onMatchEvent.add(
+              GameBroadcast(event: msg.type.substring(6), payload: msg.payload));
         } else if (msg.type.startsWith('world.')) {
-          onWorldEvent.add(msg.payload);
+          onWorldEvent.add(
+              GameBroadcast(event: msg.type.substring(6), payload: msg.payload));
         }
     }
   }
