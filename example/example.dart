@@ -34,10 +34,11 @@ Future<void> main() async {
     print('Tick — ${state.players.length} players');
   });
 
-  // Print match events (match.matched, match.finished, ...). The backend
-  // broadcasts generic match.<Event>; onMatchEvent carries each payload.
-  client.realtime.onMatchEvent.stream.listen((payload) {
-    print('Match event: ${payload['match_id']}');
+  // Whatever the Lua match script pushes with game.broadcast(event, payload).
+  // asobi's own events (match.matched, match.finished, ...) have their own
+  // typed streams and never arrive here.
+  client.realtime.onMatchEvent.stream.listen((e) {
+    print('Match event: ${e.event} ${e.payload}');
   });
 
   await client.realtime.connect();

@@ -124,6 +124,33 @@ Prefer to manage the keypair yourself (e.g. an OS keychain)? Skip the helper and
 | Notifications | List, read, delete | Real-time push |
 | Storage | Cloud saves, key-value | - |
 
+## Server-pushed game events
+
+A Lua game script pushes to clients two ways, and they land on different streams.
+
+`game.send(player_id, message)` targets one player and arrives on `onGameMessage`:
+
+```dart
+client.realtime.onGameMessage.stream.listen((m) => print(m.message));
+```
+
+`game.broadcast(event, payload)` goes to everyone in the match or world. The
+event name is chosen by your script, so it arrives on `onMatchEvent` (or
+`onWorldEvent` from a world script) as a `GameBroadcast` carrying that name:
+
+```dart
+// server: game.broadcast("players_total", { value = state.players_total })
+client.realtime.onMatchEvent.stream.listen((e) {
+  if (e.event == 'players_total') {
+    print('players: ${e.payload['value']}');
+  }
+});
+```
+
+Events asobi itself broadcasts (`match.state`, `match.finished`, the
+`match.vote_*` family, and so on) have their own typed streams and do not also
+reach `onMatchEvent`.
+
 ## Flutter
 
 The SDK is pure Dart but works fine inside Flutter apps. Hold the `AsobiClient` in whatever DI container you use (Riverpod, GetIt, an `InheritedWidget`) and dispose it when the app exits.

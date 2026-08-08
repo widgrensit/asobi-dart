@@ -222,8 +222,39 @@ void main() {
       client.realtime.debugHandleMessage(
         '{"type":"match.custom","payload":{"foo":"bar"}}',
       );
-      final payload = await got.timeout(const Duration(seconds: 1));
-      expect(payload['foo'], 'bar');
+      final event = await got.timeout(const Duration(seconds: 1));
+      expect(event.event, 'custom');
+      expect(event.payload['foo'], 'bar');
+    });
+
+    test('game.broadcast from a match script carries its own event name',
+        () async {
+      final client = AsobiClient('localhost');
+      final got = client.realtime.onMatchEvent.stream.first;
+      client.realtime.debugHandleMessage(
+        '{"type":"match.players_total","payload":{"value":3}}',
+      );
+      final event = await got.timeout(const Duration(seconds: 1));
+      expect(event.event, 'players_total');
+      expect(event.payload['value'], 3);
+    });
+
+    // An enumerated event has a typed stream; also emitting it on the
+    // catch-all would deliver it twice to a game listening to both.
+    test('an enumerated match.* does not also reach onMatchEvent', () async {
+      final client = AsobiClient('localhost');
+      var generic = false;
+      final sub = client.realtime.onMatchEvent.stream.listen((_) {
+        generic = true;
+      });
+      final typed = client.realtime.onMatchmakerMatched.stream.first;
+      client.realtime.debugHandleMessage(
+        '{"type":"match.matched","payload":{"match_id":"m1","players":["p1"]}}',
+      );
+      await typed.timeout(const Duration(seconds: 1));
+      await Future<void>.delayed(Duration.zero);
+      await sub.cancel();
+      expect(generic, isFalse);
     });
 
     test('match.matched reaches typed onMatchmakerMatched', () async {
@@ -324,8 +355,9 @@ void main() {
       client.realtime.debugHandleMessage(
         '{"type":"world.custom","payload":{"world_id":"w1"}}',
       );
-      final payload = await got.timeout(const Duration(seconds: 1));
-      expect(payload['world_id'], 'w1');
+      final event = await got.timeout(const Duration(seconds: 1));
+      expect(event.event, 'custom');
+      expect(event.payload['world_id'], 'w1');
     });
   });
 }
