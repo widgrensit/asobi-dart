@@ -9,6 +9,7 @@ import 'package:asobi/src/device.dart';
 import 'package:asobi/src/device_io.dart';
 import 'package:asobi/src/token_store.dart';
 import 'package:asobi/src/asobi_client.dart';
+import 'package:asobi/src/http_client.dart' show AsobiException;
 
 /// Deterministic byte source: 0, 1, 2, ... so a test can assert an exact base64.
 List<int> _rampBytes(int count) => List<int>.generate(count, (i) => i % 256);
@@ -206,6 +207,123 @@ void main() {
 
       expect(seen.length, 2);
       expect(seen[0], seen[1]);
+    });
+  });
+
+  // asobi#419: the first account deletion that needs no operator secret. What
+  // is worth pinning is the token handling, not that a POST goes out - the
+  // session must survive a refusal and must not survive a success.
+  group('AsobiPlayers.eraseSelf', () {
+    Future<AsobiClient> signedIn(MockClient mock) async {
+      final client = AsobiClient.fromConfig(
+        AsobiConfig('localhost'),
+        httpClient: mock,
+        tokenStore: InMemoryTokenStore(),
+      );
+      client.accessToken = 'acc';
+      client.playerId = 'p1';
+      await client.saveRefreshToken('ref');
+      return client;
+    }
+
+    test('posts an empty body for a guest and clears the session', () async {
+      Map<String, dynamic>? body;
+      String? path;
+      final mock = MockClient((req) async {
+        path = req.url.path;
+        body = jsonDecode(req.body) as Map<String, dynamic>;
+        return http.Response(jsonEncode({'deleted': true}), 200);
+      });
+      final client = await signedIn(mock);
+
+      await client.players.eraseSelf();
+
+      expect(path, '/api/v1/players/me/erase');
+      expect(body, isEmpty);
+      expect(client.accessToken, isNull);
+      expect(client.playerId, isNull);
+      expect(await client.refreshToken, isNull);
+    });
+
+    test('sends the password for an account that has one', () async {
+      Map<String, dynamic>? body;
+      final mock = MockClient((req) async {
+        body = jsonDecode(req.body) as Map<String, dynamic>;
+        return http.Response(jsonEncode({'deleted': true}), 200);
+      });
+      final client = await signedIn(mock);
+
+      await client.players.eraseSelf(password: 'secret1234');
+
+      expect(body!['password'], 'secret1234');
+    });
+
+    // A refused confirmation leaves a live account. Signing the player out of
+    // it would be wrong, which is why this is not the `finally` logout uses.
+    test('keeps the session when the confirmation is refused', () async {
+      final mock = MockClient((req) async {
+        return http.Response(
+          jsonEncode({
+            'error': {
+              'code': 'player.confirmation_failed',
+              'message': 'Wrong.',
+              'details': <String, dynamic>{},
+            },
+          }),
+          403,
+        );
+      });
+      final client = await signedIn(mock);
+
+      await expectLater(
+        client.players.eraseSelf(password: 'wrong'),
+        throwsA(
+          isA<AsobiException>()
+              .having((e) => e.statusCode, 'statusCode', 403)
+              .having((e) => e.code, 'code', 'player.confirmation_failed'),
+        ),
+      );
+
+      expect(client.accessToken, 'acc');
+      expect(await client.refreshToken, 'ref');
+    });
+  });
+
+  // Every asobi failure arrives as {"error": {code, message, details}}. The
+  // client used to cast that map to String?, so the cast threw a _TypeError out
+  // of the SDK and no caller ever saw an AsobiException on ANY error path.
+  group('AsobiHttpClient error envelope', () {
+    Future<void> expectMapped(
+        int status, Object errorField, String? code, String message) async {
+      final mock = MockClient((req) async => http.Response(
+            jsonEncode({'error': errorField}),
+            status,
+          ));
+      final client = AsobiClient.fromConfig(
+        AsobiConfig('localhost'),
+        httpClient: mock,
+        tokenStore: InMemoryTokenStore(),
+      );
+      await expectLater(
+        client.players.get('p1'),
+        throwsA(isA<AsobiException>()
+            .having((e) => e.statusCode, 'statusCode', status)
+            .having((e) => e.code, 'code', code)
+            .having((e) => e.message, 'message', message)),
+      );
+    }
+
+    test('reads code and message out of the shared error object', () async {
+      await expectMapped(
+        404,
+        {'code': 'player.not_found', 'message': 'No player.', 'details': {}},
+        'player.not_found',
+        'No player.',
+      );
+    });
+
+    test('still accepts a legacy flat string body', () async {
+      await expectMapped(400, 'bad_request', null, 'bad_request');
     });
   });
 }

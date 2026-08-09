@@ -25,4 +25,26 @@ class AsobiPlayers {
   }
 
   Future<Player> getSelf() => get(_client.playerId!);
+
+  /// Erases the signed-in account and everything the server holds for it -
+  /// saves, storage, inventory, wallets, leaderboard entries, identities.
+  /// Irreversible.
+  ///
+  /// Pass [password] only for an account that has one. A guest or a
+  /// provider-only account has no credential the client can re-present, so its
+  /// session is the whole confirmation.
+  ///
+  /// Clears the local session on success only, deliberately not in a `finally`
+  /// the way `AsobiAuth.logout` does: a refused confirmation (403) or a
+  /// credential change mid-flight (409) leaves a live account whose session
+  /// must survive. On success the server deleted the token pair inside the
+  /// erase transaction, so keeping it would only buy a doomed refresh.
+  Future<void> eraseSelf({String? password}) async {
+    await _client.http.post('/api/v1/players/me/erase', body: {
+      if (password != null) 'password': password,
+    });
+    _client.accessToken = null;
+    await _client.saveRefreshToken(null);
+    _client.playerId = null;
+  }
 }
