@@ -119,13 +119,31 @@ class AsobiHttpClient {
         : <String, dynamic>{};
 
     if (response.statusCode >= 400) {
-      throw AsobiException(
-        response.statusCode,
-        body['error'] as String? ?? 'HTTP ${response.statusCode}',
-      );
+      throw _exception(response.statusCode, body['error']);
     }
 
     return body;
+  }
+
+  /// asobi answers every failure with a shared error object,
+  /// `{"error": {"code": ..., "message": ..., "details": {...}}}`. This used to
+  /// cast `error` straight to `String?`, so against any current server the cast
+  /// itself threw a `_TypeError` out of the SDK and no caller ever saw an
+  /// `AsobiException` at all - a wrong password, a 404, a rate limit, all of
+  /// them. The bare-string form is still accepted: a few routes kept a flat
+  /// legacy body, and an older deployment may send one.
+  AsobiException _exception(int status, dynamic error) {
+    if (error is Map<String, dynamic>) {
+      final code = error['code'];
+      final message = error['message'];
+      return AsobiException(
+        status,
+        message is String ? message : 'HTTP $status',
+        code: code is String ? code : null,
+      );
+    }
+    if (error is String) return AsobiException(status, error);
+    return AsobiException(status, 'HTTP $status');
   }
 
   void close() => _http.close();
@@ -135,10 +153,18 @@ class AsobiException implements Exception {
   final int statusCode;
   final String message;
 
-  AsobiException(this.statusCode, this.message);
+  /// The machine-readable half of asobi's error object, e.g.
+  /// `player.confirmation_failed`. Branch on this, never on [message], which is
+  /// prose for a human and may be reworded at any time. Null when the server
+  /// sent a legacy flat body or no error object at all.
+  final String? code;
+
+  AsobiException(this.statusCode, this.message, {this.code});
 
   @override
-  String toString() => 'AsobiException($statusCode): $message';
+  String toString() => code == null
+      ? 'AsobiException($statusCode): $message'
+      : 'AsobiException($statusCode $code): $message';
 }
 
 /// Thrown when an extension's RPC handler answers `rpc.error`.

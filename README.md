@@ -108,6 +108,21 @@ await AsobiDevice.clear(store);
 
 Prefer to manage the keypair yourself (e.g. an OS keychain)? Skip the helper and call `guest(deviceId, deviceSecret)` directly — `AsobiDevice.generate()` still gives you a correctly-shaped pair if you only need the bytes. See [`example/guest.dart`](example/guest.dart).
 
+### Deleting an account
+
+Clearing the device pair is local only — the account stays on the server. `eraseSelf` deletes it, along with everything the server holds for it. Irreversible.
+
+```dart
+await client.players.eraseSelf();                        // guest or provider-only
+await client.players.eraseSelf(password: 'secret123');   // account with a password
+```
+
+Pass `password` only for an account that has one; a guest has no credential to re-present, so its session is the confirmation. A wrong password throws `AsobiException` with `code == 'player.confirmation_failed'` (403) and changes nothing.
+
+On success the local session is cleared, because the server deleted the token pair in the same transaction. Anything afterwards on that session is a `401` — for a retried erase, read that as "it already worked".
+
+Requires a server with `POST /api/v1/players/me/erase`; older deployments answer `404`.
+
 ## Features
 
 | Feature | REST | WebSocket |
