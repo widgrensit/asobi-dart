@@ -8,6 +8,16 @@ class Tournament {
   final String endAt;
   final String insertedAt;
 
+  /// What it costs to enter, as the game authored it - asobi does not
+  /// interpret the shape.
+  final Map<String, dynamic> entryFee;
+
+  /// What it pays out, as the game authored it.
+  final Map<String, dynamic> rewards;
+
+  /// Game-authored free-form data carried on the tournament row.
+  final Map<String, dynamic> metadata;
+
   Tournament({
     required this.id,
     required this.name,
@@ -17,6 +27,9 @@ class Tournament {
     required this.startAt,
     required this.endAt,
     required this.insertedAt,
+    this.entryFee = const {},
+    this.rewards = const {},
+    this.metadata = const {},
   });
 
   factory Tournament.fromJson(Map<String, dynamic> json) => Tournament(
@@ -28,6 +41,9 @@ class Tournament {
         startAt: json['start_at'] as String,
         endAt: json['end_at'] as String,
         insertedAt: json['inserted_at'] as String,
+        entryFee: json['entry_fee'] as Map<String, dynamic>? ?? {},
+        rewards: json['rewards'] as Map<String, dynamic>? ?? {},
+        metadata: json['metadata'] as Map<String, dynamic>? ?? {},
       );
 
   Map<String, dynamic> toJson() => {
@@ -39,5 +55,8 @@ class Tournament {
         'start_at': startAt,
         'end_at': endAt,
         'inserted_at': insertedAt,
+        'entry_fee': entryFee,
+        'rewards': rewards,
+        'metadata': metadata,
       };
 }

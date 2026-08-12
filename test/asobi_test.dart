@@ -305,6 +305,30 @@ void main() {
     });
   });
 
+  group('MatchResult', () {
+    test('fromJson reads the match.finished result object', () {
+      final json = {
+        'match_id': 'm1',
+        'result': {
+          'winner': 'p1',
+          'losers': ['p2'],
+          'scores': {'p1': 10, 'p2': 3},
+        },
+      };
+      final r = MatchResult.fromJson(json);
+      expect(r.matchId, 'm1');
+      expect(r.result['winner'], 'p1');
+      expect(r.result['losers'], ['p2']);
+      expect(r.toJson()['result'], json['result']);
+    });
+
+    test('fromJson defaults result to empty when the game returned none', () {
+      final r = MatchResult.fromJson({'match_id': 'm2'});
+      expect(r.matchId, 'm2');
+      expect(r.result, isEmpty);
+    });
+  });
+
   group('MatchmakerTicket', () {
     test('fromJson parses correctly', () {
       final json = {'ticket_id': 'tk1', 'status': 'queued'};
@@ -411,6 +435,19 @@ void main() {
       expect(cm.channelId, 'g1');
       expect(cm.senderId, 'p1');
       expect(cm.content, 'Hello!');
+      expect(cm.sentAt, '2026-01-01T00:00:00Z');
+    });
+
+    test('fromJson accepts the integer sent_at of a live chat/dm frame', () {
+      final json = {
+        'channel_id': 'world:w1',
+        'sender_id': 'p1',
+        'content': 'Hello!',
+        'sent_at': 1785312000000,
+      };
+      final cm = ChatMessage.fromJson(json);
+      expect(cm.sentAt, '1785312000000');
+      expect(cm.senderId, 'p1');
     });
   });
 
@@ -434,6 +471,35 @@ void main() {
       expect(t.status, 'active');
       expect(t.startAt, '2026-01-01T00:00:00Z');
       expect(t.endAt, '2026-01-07T23:59:59Z');
+      expect(t.entryFee, isEmpty);
+      expect(t.rewards, isEmpty);
+      expect(t.metadata, isEmpty);
+    });
+
+    test('fromJson parses the jsonb entry_fee, rewards and metadata', () {
+      final json = {
+        'id': 't2',
+        'name': 'Season Final',
+        'leaderboard_id': 'lb2',
+        'max_entries': 32,
+        'status': 'pending',
+        'start_at': '2026-01-01T00:00:00Z',
+        'end_at': '2026-01-07T23:59:59Z',
+        'inserted_at': '2026-01-01T00:00:00Z',
+        'entry_fee': {'currency': 'gold', 'amount': 100},
+        'rewards': {
+          '1': {'currency': 'gold', 'amount': 1000}
+        },
+        'metadata': {'season': 3},
+      };
+      final t = Tournament.fromJson(json);
+      expect(t.entryFee['currency'], 'gold');
+      expect(t.entryFee['amount'], 100);
+      expect(t.rewards['1'], {'currency': 'gold', 'amount': 1000});
+      expect(t.metadata['season'], 3);
+      expect(t.toJson()['entry_fee'], json['entry_fee']);
+      expect(t.toJson()['rewards'], json['rewards']);
+      expect(t.toJson()['metadata'], json['metadata']);
     });
   });
 
