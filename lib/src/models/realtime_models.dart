@@ -145,32 +145,30 @@ class MatchmakerMatch {
       };
 }
 
+/// Delivered on [AsobiRealtime.onMatchFinished] when a match ends (server
+/// `match.finished`).
 class MatchResult {
   final String matchId;
-  final String? winnerId;
-  final Map<String, PlayerState> players;
+
+  /// Whatever your game returned with `{finished, Result, State}`. asobi does
+  /// not interpret it, other than reading `winners`/`winner` and
+  /// `losers`/`loser` to move the `wins` and `losses` player stats, so the
+  /// shape is game-specific and stays untyped here.
+  final Map<String, dynamic> result;
 
   MatchResult({
     required this.matchId,
-    this.winnerId,
-    required this.players,
+    this.result = const {},
   });
 
-  factory MatchResult.fromJson(Map<String, dynamic> json) {
-    final playersJson = json['players'] as Map<String, dynamic>? ?? {};
-    return MatchResult(
-      matchId: json['match_id'] as String? ?? '',
-      winnerId: json['winner_id'] as String?,
-      players: playersJson.map((key, value) =>
-          MapEntry(key, PlayerState.fromJson(value as Map<String, dynamic>))),
-    );
-  }
+  factory MatchResult.fromJson(Map<String, dynamic> json) => MatchResult(
+        matchId: json['match_id'] as String? ?? '',
+        result: json['result'] as Map<String, dynamic>? ?? {},
+      );
 
   Map<String, dynamic> toJson() => {
         'match_id': matchId,
-        if (winnerId != null) 'winner_id': winnerId,
-        'players':
-            players.map((key, value) => MapEntry(key, value.toJson())),
+        'result': result,
       };
 }
 

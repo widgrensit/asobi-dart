@@ -84,6 +84,11 @@ class ChatMessage {
   final String channelId;
   final String senderId;
   final String content;
+
+  /// When the message was sent. The live `chat.message` and `dm.message`
+  /// frames carry Unix milliseconds, while the persisted history read
+  /// (`GET /social/chat/:channel_id/messages`) carries an ISO timestamp, so
+  /// both arrive here as their string form.
   final String sentAt;
 
   ChatMessage({
@@ -101,7 +106,7 @@ class ChatMessage {
         channelId: json['channel_id'] as String? ?? '',
         senderId: json['sender_id'] as String? ?? '',
         content: json['content'] as String? ?? '',
-        sentAt: json['sent_at'] as String? ?? '',
+        sentAt: json['sent_at']?.toString() ?? '',
       );
 
   Map<String, dynamic> toJson() => {
