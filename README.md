@@ -225,16 +225,23 @@ once-per-session event. The default world is a grid of zones and you are
 subscribed to the ring around your own, a 3x3 block of up to 9 zones at the
 default `view_radius` of 1. So joining subscribes you to the whole ring at once
 and you get a snapshot per loaded, non-empty zone in it - typically several
-frames, not one. A zone holding no entities sends nothing at all.
+frames, not one. A zone holding no entities sends no snapshot, but the terrain
+push is a separate step, so a world with a terrain provider still delivers that
+zone's chunk on `onWorldTerrain`.
 
-After that, new snapshots arrive only when a zone enters your ring for the first
-time. A single-step crossing usually delivers no snapshot at all: at
-`view_radius` 1 the destination zone was already in your ring, so re-affirming
-that subscription is a no-op. A zone leaving the ring sends `op:"r"` for each of
-its entities. Ticks in between are deltas.
+After that, a snapshot arrives every time a zone enters your ring, not only the
+first time it does. A crossing recomputes the ring and subscribes the band of
+zones that just entered it, and each of those replays a full snapshot: at
+`view_radius` 1 an orthogonal step keeps 6 of the 9 zones and brings in 3. Only
+the destination zone is a no-op, because at radius 1 it was already in the old
+ring; do not generalise that one no-op to the crossing as a whole. A zone
+leaving the ring unsubscribes you and sends `op:"r"` for each of its entities,
+so stepping back over the same boundary re-subscribes and re-snapshots it. A
+player oscillating across a boundary re-snapshots on every crossing. Ticks in
+between are deltas.
 
-So accumulate updates into one local map keyed by entity id, which absorbs
-interleaved frames from every zone you are subscribed to. Assigning a tick
+So accumulate updates into one local map keyed by entity id, which absorbs the
+separate frames arriving from every zone you are subscribed to. Assigning a tick
 wholesale to an "authoritative state" variable instead drops every entity that
 tick did not mention.
 
@@ -304,12 +311,15 @@ something changed in that zone since its last broadcast, the server sends
 sends the ack alone, with no `world.tick` in front of it. The ack handler is the
 one that always runs.
 
-Acks follow a zone's broadcast tick, not each input: each subscribed zone acks
-every `broadcast_interval` simulation ticks (default 3), repeating the same
-`seq` until it advances. Set
+Acks follow the broadcast tick, not each input: every `broadcast_interval`
+simulation ticks (default 3) each subscribed zone acks, repeating the same `seq`
+until it advances. Set
 [`broadcast_interval`](https://asobi.dev/docs/world-server) to 1 for an ack
-every tick. `broadcast_interval` gates each zone independently, so subscribing
-to 9 zones means 9 independent tickers rather than one stream.
+every tick. One ticker drives the whole world and `broadcast_interval` is a
+single world-level value copied into every zone, so zones are not on independent
+schedules and there is no ticker per zone: the several acks a multi-zone
+subscriber receives arrive together on the same broadcast tick, not interleaved
+across different cadences.
 
 ### Acks are per zone
 
@@ -317,7 +327,8 @@ Each zone keeps its own high-water mark for you and acks its own subscribers, so
 what you receive is one ack per subscribed zone that holds a recorded `seq` for
 you, not one per connection. Two consequences:
 
-- You will see more than one `world.ack` per broadcast tick once you have moved.
+- You will see more than one `world.ack` per broadcast tick once you have moved,
+  all of them arriving together on that tick.
 - `WorldAck.seq` can go backwards between consecutive acks. Moving away from a
   zone does not unsubscribe you from it, so it keeps emitting its own frozen
   high-water mark while the zone now taking your input emits a higher one.
@@ -345,9 +356,9 @@ and increment it rather than seeding it from a clock.
 Out of range, it is the `seq` that is ignored, not the input. The server drops
 the `seq` and still queues and applies that input exactly as normal; it simply
 records no acknowledgement for it. Nor do the acks go quiet: if you had already
-sent a valid `seq`, `world.ack` keeps arriving on each subscribed zone's
-broadcast tick carrying the old high-water mark, and stops advancing rather than
-stopping.
+sent a valid `seq`, `world.ack` keeps arriving from each subscribed zone on
+every broadcast tick carrying the old high-water mark, and stops advancing
+rather than stopping.
 
 Requires a server that emits `world.ack`, asobi core v0.84.0 or later; older
 deployments stay silent rather than erroring. On the client side `onWorldAck`

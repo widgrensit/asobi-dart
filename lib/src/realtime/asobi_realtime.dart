@@ -47,12 +47,13 @@ class AsobiRealtime {
   /// prediction.
   ///
   /// The mark is held per zone, not per connection, and you are subscribed to
-  /// the ring of zones around your own. Each subscribed zone acks every
-  /// `broadcast_interval` simulation ticks (default 3), so once you have moved
-  /// this fires more than once per tick, and [WorldAck.seq] can go backwards
-  /// as a zone you left keeps emitting its own frozen mark. Nothing in the
-  /// frame says which zone sent it. Keep a running maximum and ignore any ack
-  /// that does not exceed it before pruning your pending-input buffer.
+  /// the ring of zones around your own. One ticker drives every zone in a world
+  /// on a shared `broadcast_interval` (default 3 simulation ticks), so once you
+  /// have moved this fires several times per broadcast tick, all together
+  /// rather than on independent per-zone schedules, and [WorldAck.seq] can go
+  /// backwards as a zone you left keeps emitting its own frozen mark. Nothing
+  /// in the frame says which zone sent it. Keep a running maximum and ignore
+  /// any ack that does not exceed it before pruning your pending-input buffer.
   ///
   /// A zone tick that changed something sends `world.tick` first and this
   /// second; a tick that changed nothing sends this alone, so prune here
