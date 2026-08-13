@@ -334,6 +334,21 @@ class WorldTick {
       );
 }
 
+/// `world.ack` - the server's acknowledgement of the highest `world.input`
+/// [seq] it has consumed for you as of [tick]. Sent only to connections that
+/// stamped a `seq`; use it to reconcile client-side prediction.
+class WorldAck {
+  final int tick;
+  final int seq;
+
+  WorldAck({required this.tick, required this.seq});
+
+  factory WorldAck.fromJson(Map<String, dynamic> json) => WorldAck(
+        tick: (json['tick'] as num?)?.toInt() ?? 0,
+        seq: (json['seq'] as num?)?.toInt() ?? 0,
+      );
+}
+
 class WorldTerrainChunk {
   final int coordX;
   final int coordY;

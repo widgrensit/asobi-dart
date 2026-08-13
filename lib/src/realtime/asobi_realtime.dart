@@ -40,6 +40,12 @@ class AsobiRealtime {
   final StreamController<Notification> onNotification = StreamController.broadcast();
   final StreamController<PresenceEvent> onPresenceChanged = StreamController.broadcast();
   final StreamController<WorldTick> onWorldTick = StreamController.broadcast();
+
+  /// Fires on `world.ack` - the server's ack of the highest `world.input`
+  /// [WorldAck.seq] it consumed for you as of [WorldAck.tick]. Fires only if
+  /// you stamped a `seq` on your input; use it to reconcile client-side
+  /// prediction.
+  final StreamController<WorldAck> onWorldAck = StreamController.broadcast();
   final StreamController<WorldTerrainChunk> onWorldTerrain = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onWorldJoined = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onWorldLeft = StreamController.broadcast();
@@ -213,8 +219,13 @@ class AsobiRealtime {
 
   Future<void> leaveWorld() => _send('world.leave', {});
 
-  void sendWorldInput(Map<String, dynamic> data) =>
-      _sendFireAndForget('world.input', data);
+  /// Send input to your zone. Pass [seq] - a per-input sequence number your
+  /// client increments - to opt into `world.ack` reconciliation; the server
+  /// echoes back the highest seq it has consumed (see [onWorldAck]). [seq]
+  /// must be a non-negative integer below 2^53; an out-of-range value is
+  /// ignored server-side and yields no ack.
+  void sendWorldInput(Map<String, dynamic> data, {int? seq}) =>
+      _sendFireAndForget('world.input', data, seq: seq);
 
   /// Lists running worlds, optionally filtered by mode and capacity.
   Future<Map<String, dynamic>> listWorlds({String? mode, bool? hasCapacity}) =>
@@ -284,10 +295,20 @@ class AsobiRealtime {
     );
   }
 
-  void _sendFireAndForget(String type, Map<String, dynamic> payload) {
-    final msg = jsonEncode({'type': type, 'payload': payload});
-    _channel!.sink.add(msg);
+  void _sendFireAndForget(String type, Map<String, dynamic> payload,
+      {int? seq}) {
+    _channel!.sink.add(debugFireAndForgetFrame(type, payload, seq: seq));
   }
+
+  /// Test seam: the exact fire-and-forget frame bytes, without a socket. `seq`
+  /// is a top-level sibling of `payload`, omitted when null.
+  String debugFireAndForgetFrame(String type, Map<String, dynamic> payload,
+          {int? seq}) =>
+      jsonEncode({
+        'type': type,
+        if (seq != null) 'seq': seq,
+        'payload': payload,
+      });
 
   void _handleMessage(String raw) {
     final json = jsonDecode(raw) as Map<String, dynamic>;
@@ -344,6 +365,8 @@ class AsobiRealtime {
         onNotification.add(Notification.fromJson(msg.payload));
       case 'world.tick':
         onWorldTick.add(WorldTick.fromJson(msg.payload));
+      case 'world.ack':
+        onWorldAck.add(WorldAck.fromJson(msg.payload));
       case 'world.terrain':
         onWorldTerrain.add(WorldTerrainChunk.fromJson(msg.payload));
       case 'world.joined':
