@@ -177,8 +177,8 @@ reads.
 client.realtime.sendWorldInput({'kind': 'move', 'dx': 1, 'dy': 0});
 ```
 
-Pass `seq` - your own counter, incremented once per input and never reused - to
-opt into acknowledgement. It goes on the wire as a top-level sibling of `payload`
+Pass `seq`, your own counter incremented once per input and never reused, to opt
+into acknowledgement. It goes on the wire as a top-level sibling of `payload`
 (`{"type":"world.input","seq":412,"payload":{...}}`), and the server answers on
 `onWorldAck` with a `WorldAck`:
 
@@ -190,22 +190,33 @@ client.realtime.onWorldAck.stream.listen((ack) {
 });
 ```
 
-`WorldAck.seq` is a high-water mark - the highest `seq` the server consumed for
-you as of `WorldAck.tick` - not a receipt per input. A rejected input still
-advances it, so a dropped input never strands the client. Both fields decode as
-Dart `int`, so no numeric cast is needed.
+`WorldAck.seq` is a high-water mark, the highest `seq` the server consumed for
+you as of `WorldAck.tick`, not a receipt per input. An input your script rejects
+still advances it, so a refused input never strands the client. Both fields
+decode as Dart `int`, so no numeric cast is needed.
 
 The frame is per-connection: it never rides the shared `world.tick` broadcast,
-and it reaches only connections that stamped a `seq`. Send input without one and
-you get silence, not an error.
+and it goes only to connections that have stamped a `seq`. A connection that has
+never stamped one gets no `world.ack` at all, and no error either.
 
 ### Reconciling a prediction
 
-`world.tick` is a delta frame, not a snapshot. `WorldTick.updates` carries
-`EntityDelta`s whose `op` is `"a"` (added, full state), `"u"` (updated, changed
-fields only) or `"r"` (removed), and only the first tick after `world.joined` is
-a full snapshot. Accumulate them into a local map: assigning a tick wholesale to
-an "authoritative state" variable drops every entity that tick did not mention.
+`world.tick` is a delta frame. `WorldTick.updates` carries `EntityDelta`s whose
+`op` is `"a"` (added, full state), `"u"` (updated, changed fields only) or `"r"`
+(removed).
+
+Every new zone subscription opens with a full `op:"a"` snapshot of that zone's
+entities, and that is not a once-per-session event. The default world is a grid
+of zones and you are subscribed to the ring around your own, so crossing a zone
+boundary brings new zones into that ring and each one opens with its own
+snapshot; zones leaving the ring send `op:"r"` for everything in them.
+Re-affirming a subscription you already hold sends nothing. Ticks in between are
+deltas.
+
+So accumulate updates into one local map keyed by entity id, which absorbs
+interleaved frames from every zone you are subscribed to. Assigning a tick
+wholesale to an "authoritative state" variable instead drops every entity that
+tick did not mention.
 
 Then buffer each predicted input under its `seq`, drop everything up to
 `ack.seq` when the ack lands, and replay the remainder on top of the accumulated
@@ -214,13 +225,21 @@ state.
 ```dart
 final entities = <String, Map<String, dynamic>>{}; // authoritative, accumulated
 final pending = <int, Map<String, dynamic>>{};     // predicted, not yet acked
-final myEntityId = client.playerId;
-var predicted = <String, dynamic>{};
+final myEntityId = client.playerId!;               // set by auth
+var predicted = <String, dynamic>{};               // what you render
 var seq = 0;
 
 void apply(Map<String, dynamic> entity, Map<String, dynamic> input) {
   entity['x'] = ((entity['x'] as num?) ?? 0) + (input['dx'] as num);
   entity['y'] = ((entity['y'] as num?) ?? 0) + (input['dy'] as num);
+}
+
+Map<String, dynamic> replayPending() {
+  final me = Map<String, dynamic>.from(entities[myEntityId] ?? const {});
+  for (final s in pending.keys.toList()..sort()) {
+    apply(me, pending[s]!);
+  }
+  return me;
 }
 
 client.realtime.onWorldTick.stream.listen((tick) {
@@ -234,15 +253,12 @@ client.realtime.onWorldTick.stream.listen((tick) {
         entities.remove(u.id);
     }
   }
+  predicted = replayPending(); // newer authoritative state, same pending buffer
 });
 
 client.realtime.onWorldAck.stream.listen((ack) {
-  pending.removeWhere((s, _) => s <= ack.seq);
-  final me = Map<String, dynamic>.from(entities[myEntityId] ?? const {});
-  for (final s in pending.keys.toList()..sort()) {
-    apply(me, pending[s]!);
-  }
-  predicted = me;
+  pending.removeWhere((s, _) => s <= ack.seq); // prune here: this always fires
+  predicted = replayPending();
 });
 
 void move(num dx, num dy) {
@@ -253,12 +269,14 @@ void move(num dx, num dy) {
 }
 ```
 
-Entity ids are the world script's to choose; the sample assumes yours keys the
-player entity by player id, which is the convention.
+asobi adds your player entity to its zone keyed by your player id, so
+`client.playerId` is the entity id to reconcile against.
 
-For a given tick the server sends `world.tick` first and `world.ack` second on
-the same connection, so prune and replay in the ack handler. A replay done in
-the tick handler runs against a buffer that has not been pruned yet.
+Prune in the ack handler, not the tick handler. On a broadcast tick
+where something changed since the last broadcast, the server sends `world.tick`
+first and `world.ack` second on the same connection; on a tick where nothing
+changed it sends the ack alone, with no `world.tick` in front of it. The ack
+handler is the one that always runs.
 
 Acks follow the zone's broadcast tick, not each input: one every
 `broadcast_interval` simulation ticks (default 3), repeating the same `seq`
@@ -266,15 +284,30 @@ until it advances. Set
 [`broadcast_interval`](https://asobi.dev/docs/world-server) to 1 for an ack
 every tick.
 
-`seq` must be a non-negative integer below 2^53. Dart's `int` is 64-bit, wider
-than that, so do not seed the counter from a nanosecond clock: the server
-ignores an out-of-range `seq` and sends no ack, silently.
+The high-water mark is held per zone, so crossing into a new zone pauses the ack
+stream until your next `seq`-stamped input reaches that zone, which resumes it
+from that `seq`. Your counter is yours alone and never goes backwards, so the
+prune rule holds across a crossing.
 
-Requires a server that emits `world.ack` (asobi core v0.84.0 or later); older
-deployments stay silent rather than erroring. Added to this SDK in v2.4.0.
+`seq` must be an integer from 0 to 2^53 - 1. On the native VM Dart's `int` is
+64-bit and holds far more than that, so an oversized value reaches the server
+intact and lands outside the accepted range; compiled to JavaScript `int` is a
+double and stays exact only to 2^53, the same ceiling. Start the counter at 0
+and increment it rather than seeding it from a clock.
 
-Frame reference: [client-side
-prediction](https://asobi.dev/docs/protocols/websocket#client-side-prediction).
+Out of range, it is the `seq` that is ignored, not the input. The server drops
+the `seq` and still queues and applies that input exactly as normal; it simply
+records no acknowledgement for it. Nor does the ack stream go quiet: if you had
+already sent a valid `seq`, `world.ack` keeps arriving every broadcast tick
+carrying the old high-water mark, and stops advancing rather than stopping.
+
+Requires a server that emits `world.ack`, asobi core v0.84.0 or later; older
+deployments stay silent rather than erroring. On the client side `onWorldAck`
+first shipped in release
+[v2.4.0](https://github.com/widgrensit/asobi-dart/releases/tag/v2.4.0).
+
+Frame reference:
+[client-side prediction](https://asobi.dev/docs/protocols/websocket#client-side-prediction).
 
 ## Flutter
 

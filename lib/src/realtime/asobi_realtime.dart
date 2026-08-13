@@ -45,8 +45,10 @@ class AsobiRealtime {
   /// [WorldAck.seq] it consumed for you as of [WorldAck.tick]. Fires only if
   /// you stamped a `seq` on your input; use it to reconcile client-side
   /// prediction. One per broadcast tick (every `broadcast_interval` simulation
-  /// ticks, default 3), after that tick's `world.tick`, repeating the same seq
-  /// until it advances.
+  /// ticks, default 3), repeating the same seq until it advances. A broadcast
+  /// tick that changed something sends `world.tick` first and this second; a
+  /// tick that changed nothing sends this alone, so prune your pending-input
+  /// buffer here rather than in the [onWorldTick] handler.
   final StreamController<WorldAck> onWorldAck = StreamController.broadcast();
   final StreamController<WorldTerrainChunk> onWorldTerrain = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onWorldJoined = StreamController.broadcast();
@@ -224,8 +226,9 @@ class AsobiRealtime {
   /// Send input to your zone. Pass [seq] - a per-input sequence number your
   /// client increments - to opt into `world.ack` reconciliation; the server
   /// echoes back the highest seq it has consumed (see [onWorldAck]). [seq]
-  /// must be a non-negative integer below 2^53; an out-of-range value is
-  /// ignored server-side and yields no ack.
+  /// must be an integer from 0 to 2^53 - 1. Out of that range it is the `seq`
+  /// that is discarded, not the input: the input is still queued and applied
+  /// as normal, it just records no ack.
   void sendWorldInput(Map<String, dynamic> data, {int? seq}) =>
       _sendFireAndForget('world.input', data, seq: seq);
 
