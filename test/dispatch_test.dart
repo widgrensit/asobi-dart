@@ -84,6 +84,8 @@ Stream<dynamic> streamFor(AsobiRealtime rt, String type) {
       return rt.onVoteVetoOk.stream;
     case 'world.tick':
       return rt.onWorldTick.stream;
+    case 'world.ack':
+      return rt.onWorldAck.stream;
     case 'world.terrain':
       return rt.onWorldTerrain.stream;
     case 'world.list':
@@ -139,6 +141,7 @@ const expectedTypes = <String>{
   'vote.cast_ok',
   'vote.veto_ok',
   'world.tick',
+  'world.ack',
   'world.terrain',
   'world.list',
   'world.joined',
@@ -380,6 +383,38 @@ void main() {
       final event = await got.timeout(const Duration(seconds: 1));
       expect(event.event, 'mystery.happened');
       expect(event.data['x'], 1);
+    });
+
+    test(
+      'world.ack fixture surfaces tick and seq',
+      () async {
+        final client = AsobiClient('localhost');
+        final got = client.realtime.onWorldAck.stream.first;
+        final raw = File('$fixtureDir/world.ack.json').readAsStringSync();
+        client.realtime.debugHandleMessage(raw);
+        final ack = await got.timeout(const Duration(seconds: 1));
+        expect(ack.tick, 42);
+        expect(ack.seq, 412);
+      },
+    );
+
+    test('sendWorldInput stamps seq as a top-level sibling of payload', () {
+      final client = AsobiClient('localhost');
+      final frame = jsonDecode(
+        client.realtime.debugFireAndForgetFrame('world.input', {'x': 1}, seq: 5),
+      ) as Map<String, dynamic>;
+      expect(frame['type'], 'world.input');
+      expect(frame['seq'], 5);
+      expect(frame['payload'], {'x': 1});
+      expect((frame['payload'] as Map).containsKey('seq'), isFalse);
+    });
+
+    test('sendWorldInput omits seq when not provided', () {
+      final client = AsobiClient('localhost');
+      final frame = jsonDecode(
+        client.realtime.debugFireAndForgetFrame('world.input', {'x': 1}),
+      ) as Map<String, dynamic>;
+      expect(frame.containsKey('seq'), isFalse);
     });
 
     test('unenumerated world.* reaches onWorldEvent', () async {
