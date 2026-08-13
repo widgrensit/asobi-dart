@@ -177,6 +177,14 @@ reads.
 client.realtime.sendWorldInput({'kind': 'move', 'dx': 1, 'dy': 0});
 ```
 
+One key is reserved. The transport treats a top-level `data` key as a wrapper:
+if the map you pass has `data` mapped to another map, your script receives only
+that inner map and every sibling key is dropped. Passing
+`{'data': {'dx': 1}, 'kind': 'move'}` delivers `{'dx': 1}` and loses `kind`. If
+`data` is present but is not a map, the script receives an empty map instead.
+Either send your fields at the top level, as above, or put all of them inside
+`data` - never both.
+
 Pass `seq`, your own counter incremented once per input and never reused, to opt
 into acknowledgement. It goes on the wire as a top-level sibling of `payload`
 (`{"type":"world.input","seq":412,"payload":{...}}`), and the server answers on
@@ -190,14 +198,21 @@ client.realtime.onWorldAck.stream.listen((ack) {
 });
 ```
 
-`WorldAck.seq` is a high-water mark, the highest `seq` the server consumed for
-you as of `WorldAck.tick`, not a receipt per input. An input your script rejects
-still advances it, so a refused input never strands the client. Both fields
-decode as Dart `int`, so no numeric cast is needed.
+`WorldAck.seq` is a high-water mark, the highest `seq` that one zone consumed
+for you as of `WorldAck.tick`, not a receipt per input. An input your script
+rejects still advances it, so a refused input never strands the client. Both
+fields decode as Dart `int`, so no numeric cast is needed.
 
-The frame is per-connection: it never rides the shared `world.tick` broadcast,
-and it goes only to connections that have stamped a `seq`. A connection that has
-never stamped one gets no `world.ack` at all, and no error either.
+The frame is private to your connection: it never rides the shared `world.tick`
+broadcast, and it goes only to connections that have stamped a `seq`. A
+connection that has never stamped one gets no `world.ack` at all, and no error
+either.
+
+It is not, however, one ack per connection. The high-water mark is per zone, and
+you are subscribed to several zones at once, so expect more than one `world.ack`
+per broadcast tick once you have moved, and nothing in the frame says which zone
+sent it. See [Acks are per zone](#acks-are-per-zone) before you write the prune
+rule.
 
 ### Reconciling a prediction
 
@@ -205,22 +220,30 @@ never stamped one gets no `world.ack` at all, and no error either.
 `op` is `"a"` (added, full state), `"u"` (updated, changed fields only) or `"r"`
 (removed).
 
-Every new zone subscription opens with a full `op:"a"` snapshot of that zone's
-entities, and that is not a once-per-session event. The default world is a grid
-of zones and you are subscribed to the ring around your own, so crossing a zone
-boundary brings new zones into that ring and each one opens with its own
-snapshot; zones leaving the ring send `op:"r"` for everything in them.
-Re-affirming a subscription you already hold sends nothing. Ticks in between are
-deltas.
+A full `op:"a"` snapshot arrives on every new zone subscription, which is not a
+once-per-session event. The default world is a grid of zones and you are
+subscribed to the ring around your own, a 3x3 block of up to 9 zones at the
+default `view_radius` of 1. So joining subscribes you to the whole ring at once
+and you get a snapshot per loaded, non-empty zone in it - typically several
+frames, not one. A zone holding no entities sends nothing at all.
+
+After that, new snapshots arrive only when a zone enters your ring for the first
+time. A single-step crossing usually delivers no snapshot at all: at
+`view_radius` 1 the destination zone was already in your ring, so re-affirming
+that subscription is a no-op. A zone leaving the ring sends `op:"r"` for each of
+its entities. Ticks in between are deltas.
 
 So accumulate updates into one local map keyed by entity id, which absorbs
 interleaved frames from every zone you are subscribed to. Assigning a tick
 wholesale to an "authoritative state" variable instead drops every entity that
 tick did not mention.
 
-Then buffer each predicted input under its `seq`, drop everything up to
-`ack.seq` when the ack lands, and replay the remainder on top of the accumulated
-state.
+Then buffer each predicted input under its `seq`. When an ack lands, keep a
+running maximum of the `seq` you have accepted and ignore any ack that does not
+beat it; only then drop everything up to that mark and replay the remainder on
+top of the accumulated state. Acks arrive from several zones and can go
+backwards, so the running maximum is what makes the prune safe - see
+[Acks are per zone](#acks-are-per-zone).
 
 ```dart
 final entities = <String, Map<String, dynamic>>{}; // authoritative, accumulated
@@ -228,6 +251,7 @@ final pending = <int, Map<String, dynamic>>{};     // predicted, not yet acked
 final myEntityId = client.playerId!;               // set by auth
 var predicted = <String, dynamic>{};               // what you render
 var seq = 0;
+var ackedSeq = -1;                                 // running max across zones
 
 void apply(Map<String, dynamic> entity, Map<String, dynamic> input) {
   entity['x'] = ((entity['x'] as num?) ?? 0) + (input['dx'] as num);
@@ -257,7 +281,9 @@ client.realtime.onWorldTick.stream.listen((tick) {
 });
 
 client.realtime.onWorldAck.stream.listen((ack) {
-  pending.removeWhere((s, _) => s <= ack.seq); // prune here: this always fires
+  if (ack.seq <= ackedSeq) return; // a stale zone's mark: ignore, never prune
+  ackedSeq = ack.seq;
+  pending.removeWhere((s, _) => s <= ackedSeq); // prune here: an ack always fires
   predicted = replayPending();
 });
 
@@ -272,22 +298,43 @@ void move(num dx, num dy) {
 asobi adds your player entity to its zone keyed by your player id, so
 `client.playerId` is the entity id to reconcile against.
 
-Prune in the ack handler, not the tick handler. On a broadcast tick
-where something changed since the last broadcast, the server sends `world.tick`
-first and `world.ack` second on the same connection; on a tick where nothing
-changed it sends the ack alone, with no `world.tick` in front of it. The ack
-handler is the one that always runs.
+Prune in the ack handler, not the tick handler. On a zone's broadcast tick where
+something changed in that zone since its last broadcast, the server sends
+`world.tick` first and `world.ack` second; on a tick where nothing changed it
+sends the ack alone, with no `world.tick` in front of it. The ack handler is the
+one that always runs.
 
-Acks follow the zone's broadcast tick, not each input: one every
-`broadcast_interval` simulation ticks (default 3), repeating the same `seq`
-until it advances. Set
+Acks follow a zone's broadcast tick, not each input: each subscribed zone acks
+every `broadcast_interval` simulation ticks (default 3), repeating the same
+`seq` until it advances. Set
 [`broadcast_interval`](https://asobi.dev/docs/world-server) to 1 for an ack
-every tick.
+every tick. `broadcast_interval` gates each zone independently, so subscribing
+to 9 zones means 9 independent tickers rather than one stream.
 
-The high-water mark is held per zone, so crossing into a new zone pauses the ack
-stream until your next `seq`-stamped input reaches that zone, which resumes it
-from that `seq`. Your counter is yours alone and never goes backwards, so the
-prune rule holds across a crossing.
+### Acks are per zone
+
+Each zone keeps its own high-water mark for you and acks its own subscribers, so
+what you receive is one ack per subscribed zone that holds a recorded `seq` for
+you, not one per connection. Two consequences:
+
+- You will see more than one `world.ack` per broadcast tick once you have moved.
+- `WorldAck.seq` can go backwards between consecutive acks. Moving away from a
+  zone does not unsubscribe you from it, so it keeps emitting its own frozen
+  high-water mark while the zone now taking your input emits a higher one.
+
+Nothing in the frame identifies the sending zone, so you cannot filter by
+origin. Keep a running maximum of the `seq` you have accepted and ignore any ack
+that does not exceed it, as the sample above does. "Drop everything `<= ack.seq`
+and replay the rest" is only safe against a monotonic mark; applied to a raw ack
+it re-applies inputs you had already consumed as soon as a stale zone acks.
+
+Your own counter never goes backwards. It is what you receive that can, which is
+why the running maximum lives in the ack handler rather than in the counter.
+
+The server calls this ack "per-connection" in its own source comment and in the
+protocol guide. That wording is wrong for any multi-zone world; it is tracked
+upstream as
+[widgrensit/asobi#477](https://github.com/widgrensit/asobi/issues/477).
 
 `seq` must be an integer from 0 to 2^53 - 1. On the native VM Dart's `int` is
 64-bit and holds far more than that, so an oversized value reaches the server
@@ -297,9 +344,10 @@ and increment it rather than seeding it from a clock.
 
 Out of range, it is the `seq` that is ignored, not the input. The server drops
 the `seq` and still queues and applies that input exactly as normal; it simply
-records no acknowledgement for it. Nor does the ack stream go quiet: if you had
-already sent a valid `seq`, `world.ack` keeps arriving every broadcast tick
-carrying the old high-water mark, and stops advancing rather than stopping.
+records no acknowledgement for it. Nor do the acks go quiet: if you had already
+sent a valid `seq`, `world.ack` keeps arriving on each subscribed zone's
+broadcast tick carrying the old high-water mark, and stops advancing rather than
+stopping.
 
 Requires a server that emits `world.ack`, asobi core v0.84.0 or later; older
 deployments stay silent rather than erroring. On the client side `onWorldAck`

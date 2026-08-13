@@ -41,14 +41,22 @@ class AsobiRealtime {
   final StreamController<PresenceEvent> onPresenceChanged = StreamController.broadcast();
   final StreamController<WorldTick> onWorldTick = StreamController.broadcast();
 
-  /// Fires on `world.ack` - the server's ack of the highest `world.input`
+  /// Fires on `world.ack` - one zone's ack of the highest `world.input`
   /// [WorldAck.seq] it consumed for you as of [WorldAck.tick]. Fires only if
   /// you stamped a `seq` on your input; use it to reconcile client-side
-  /// prediction. One per broadcast tick (every `broadcast_interval` simulation
-  /// ticks, default 3), repeating the same seq until it advances. A broadcast
-  /// tick that changed something sends `world.tick` first and this second; a
-  /// tick that changed nothing sends this alone, so prune your pending-input
-  /// buffer here rather than in the [onWorldTick] handler.
+  /// prediction.
+  ///
+  /// The mark is held per zone, not per connection, and you are subscribed to
+  /// the ring of zones around your own. Each subscribed zone acks every
+  /// `broadcast_interval` simulation ticks (default 3), so once you have moved
+  /// this fires more than once per tick, and [WorldAck.seq] can go backwards
+  /// as a zone you left keeps emitting its own frozen mark. Nothing in the
+  /// frame says which zone sent it. Keep a running maximum and ignore any ack
+  /// that does not exceed it before pruning your pending-input buffer.
+  ///
+  /// A zone tick that changed something sends `world.tick` first and this
+  /// second; a tick that changed nothing sends this alone, so prune here
+  /// rather than in the [onWorldTick] handler.
   final StreamController<WorldAck> onWorldAck = StreamController.broadcast();
   final StreamController<WorldTerrainChunk> onWorldTerrain = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onWorldJoined = StreamController.broadcast();
