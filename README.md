@@ -131,6 +131,7 @@ Requires a server with `POST /api/v1/players/me/erase`; older deployments answer
 | Players | Profiles, updates | - |
 | Matchmaker | Queue, status, cancel | Real-time match found |
 | Matches | List, details | State sync, input, events |
+| Worlds | List, get, create | Join, tick deltas, input + ack, terrain |
 | Leaderboards | Top scores, around player, submit | - |
 | Economy | Wallets, store, purchases | - |
 | Inventory | Items, consume | - |
@@ -165,6 +166,115 @@ client.realtime.onMatchEvent.stream.listen((e) {
 Events asobi itself broadcasts (`match.state`, `match.finished`, the
 `match.vote_*` family, and so on) have their own typed streams and do not also
 reach `onMatchEvent`.
+
+## World input and client-side prediction
+
+`sendWorldInput` sends a `world.input` frame to whichever zone owns your player
+entity. The payload shape is game-specific: your world script decides what it
+reads.
+
+```dart
+client.realtime.sendWorldInput({'kind': 'move', 'dx': 1, 'dy': 0});
+```
+
+Pass `seq` - your own counter, incremented once per input and never reused - to
+opt into acknowledgement. It goes on the wire as a top-level sibling of `payload`
+(`{"type":"world.input","seq":412,"payload":{...}}`), and the server answers on
+`onWorldAck` with a `WorldAck`:
+
+```dart
+client.realtime.sendWorldInput({'kind': 'move', 'dx': 1, 'dy': 0}, seq: 412);
+
+client.realtime.onWorldAck.stream.listen((ack) {
+  print('consumed up to ${ack.seq} as of tick ${ack.tick}');
+});
+```
+
+`WorldAck.seq` is a high-water mark - the highest `seq` the server consumed for
+you as of `WorldAck.tick` - not a receipt per input. A rejected input still
+advances it, so a dropped input never strands the client. Both fields decode as
+Dart `int`, so no numeric cast is needed.
+
+The frame is per-connection: it never rides the shared `world.tick` broadcast,
+and it reaches only connections that stamped a `seq`. Send input without one and
+you get silence, not an error.
+
+### Reconciling a prediction
+
+`world.tick` is a delta frame, not a snapshot. `WorldTick.updates` carries
+`EntityDelta`s whose `op` is `"a"` (added, full state), `"u"` (updated, changed
+fields only) or `"r"` (removed), and only the first tick after `world.joined` is
+a full snapshot. Accumulate them into a local map: assigning a tick wholesale to
+an "authoritative state" variable drops every entity that tick did not mention.
+
+Then buffer each predicted input under its `seq`, drop everything up to
+`ack.seq` when the ack lands, and replay the remainder on top of the accumulated
+state.
+
+```dart
+final entities = <String, Map<String, dynamic>>{}; // authoritative, accumulated
+final pending = <int, Map<String, dynamic>>{};     // predicted, not yet acked
+final myEntityId = client.playerId;
+var predicted = <String, dynamic>{};
+var seq = 0;
+
+void apply(Map<String, dynamic> entity, Map<String, dynamic> input) {
+  entity['x'] = ((entity['x'] as num?) ?? 0) + (input['dx'] as num);
+  entity['y'] = ((entity['y'] as num?) ?? 0) + (input['dy'] as num);
+}
+
+client.realtime.onWorldTick.stream.listen((tick) {
+  for (final u in tick.updates) {
+    switch (u.op) {
+      case 'a':
+        entities[u.id] = Map<String, dynamic>.from(u.data);
+      case 'u':
+        (entities[u.id] ??= <String, dynamic>{}).addAll(u.data);
+      case 'r':
+        entities.remove(u.id);
+    }
+  }
+});
+
+client.realtime.onWorldAck.stream.listen((ack) {
+  pending.removeWhere((s, _) => s <= ack.seq);
+  final me = Map<String, dynamic>.from(entities[myEntityId] ?? const {});
+  for (final s in pending.keys.toList()..sort()) {
+    apply(me, pending[s]!);
+  }
+  predicted = me;
+});
+
+void move(num dx, num dy) {
+  final input = <String, dynamic>{'kind': 'move', 'dx': dx, 'dy': dy};
+  pending[++seq] = input;
+  apply(predicted, input); // predict locally, before the server has seen it
+  client.realtime.sendWorldInput(input, seq: seq);
+}
+```
+
+Entity ids are the world script's to choose; the sample assumes yours keys the
+player entity by player id, which is the convention.
+
+For a given tick the server sends `world.tick` first and `world.ack` second on
+the same connection, so prune and replay in the ack handler. A replay done in
+the tick handler runs against a buffer that has not been pruned yet.
+
+Acks follow the zone's broadcast tick, not each input: one every
+`broadcast_interval` simulation ticks (default 3), repeating the same `seq`
+until it advances. Set
+[`broadcast_interval`](https://asobi.dev/docs/world-server) to 1 for an ack
+every tick.
+
+`seq` must be a non-negative integer below 2^53. Dart's `int` is 64-bit, wider
+than that, so do not seed the counter from a nanosecond clock: the server
+ignores an out-of-range `seq` and sends no ack, silently.
+
+Requires a server that emits `world.ack` (asobi core v0.84.0 or later); older
+deployments stay silent rather than erroring. Added to this SDK in v2.4.0.
+
+Frame reference: [client-side
+prediction](https://asobi.dev/docs/protocols/websocket#client-side-prediction).
 
 ## Flutter
 

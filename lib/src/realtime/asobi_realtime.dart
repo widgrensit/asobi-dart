@@ -44,7 +44,9 @@ class AsobiRealtime {
   /// Fires on `world.ack` - the server's ack of the highest `world.input`
   /// [WorldAck.seq] it consumed for you as of [WorldAck.tick]. Fires only if
   /// you stamped a `seq` on your input; use it to reconcile client-side
-  /// prediction.
+  /// prediction. One per broadcast tick (every `broadcast_interval` simulation
+  /// ticks, default 3), after that tick's `world.tick`, repeating the same seq
+  /// until it advances.
   final StreamController<WorldAck> onWorldAck = StreamController.broadcast();
   final StreamController<WorldTerrainChunk> onWorldTerrain = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onWorldJoined = StreamController.broadcast();
