@@ -273,6 +273,36 @@ class GameMessage {
   String toString() => 'GameMessage($module, $message)';
 }
 
+/// Delivered on [AsobiRealtime.onModuleEvent] on `module.event` - a named
+/// server->client push from an extension module. Unlike a Lua
+/// `game.broadcast`, both the module and the event name travel in the payload,
+/// so [event] is the full dotted name the extension chose (`quests.completed`)
+/// and the app branches on it. [data] is the extension-defined body and stays
+/// untyped. There is no `game.event` alias; this frame arrives under one name.
+class ModuleEvent {
+  final String module;
+  final String event;
+  final Map<String, dynamic> data;
+
+  ModuleEvent(
+      {required this.module, required this.event, this.data = const {}});
+
+  factory ModuleEvent.fromJson(Map<String, dynamic> json) => ModuleEvent(
+        module: json['module'] as String? ?? '',
+        event: json['event'] as String? ?? '',
+        data: json['data'] as Map<String, dynamic>? ?? const {},
+      );
+
+  Map<String, dynamic> toJson() => {
+        'module': module,
+        'event': event,
+        'data': data,
+      };
+
+  @override
+  String toString() => 'ModuleEvent($module, $event, $data)';
+}
+
 /// Delivered on [AsobiRealtime.onMatchEvent] / [AsobiRealtime.onWorldEvent]
 /// when a Lua script calls `game.broadcast(event, payload)`. The server sends
 /// it as `match.<event>` / `world.<event>`, so [event] is the bare name the

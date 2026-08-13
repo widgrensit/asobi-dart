@@ -30,6 +30,8 @@ Stream<dynamic> streamFor(AsobiRealtime rt, String type) {
     case 'game.message':
     case 'module.message':
       return rt.onGameMessage.stream;
+    case 'module.event':
+      return rt.onModuleEvent.stream;
     case 'session.connected':
       return rt.onConnected.stream;
     case 'session.heartbeat':
@@ -110,6 +112,7 @@ const expectedTypes = <String>{
   'game.message',
   'module.error',
   'module.message',
+  'module.event',
   'match.matched',
   'session.connected',
   'session.heartbeat',
@@ -348,6 +351,36 @@ void main() {
         expect(msg.message, 42);
       },
     );
+
+    test(
+      'module.event fixture surfaces module, event, and data',
+      () async {
+        final client = AsobiClient('localhost');
+        final got = client.realtime.onModuleEvent.stream.first;
+        final raw = File('$fixtureDir/module.event.json').readAsStringSync();
+        client.realtime.debugHandleMessage(raw);
+        final event = await got.timeout(const Duration(seconds: 1));
+        expect(event.module, 'quests');
+        expect(event.event, 'quests.completed');
+        expect(event.data['quest_id'], '01j8x000000000000000000042');
+        expect(event.data['reward'], 250);
+      },
+    );
+
+    // The inner `event` name is data, not a dispatch gate: an unfamiliar name
+    // must still surface so a client shipped before the extension existed
+    // keeps receiving its events (the 1.0 wire freeze depends on this).
+    test('module.event with an unfamiliar inner event still surfaces',
+        () async {
+      final client = AsobiClient('localhost');
+      final got = client.realtime.onModuleEvent.stream.first;
+      client.realtime.debugHandleMessage(
+        '{"type":"module.event","payload":{"module":"mystery","event":"mystery.happened","data":{"x":1}}}',
+      );
+      final event = await got.timeout(const Duration(seconds: 1));
+      expect(event.event, 'mystery.happened');
+      expect(event.data['x'], 1);
+    });
 
     test('unenumerated world.* reaches onWorldEvent', () async {
       final client = AsobiClient('localhost');
