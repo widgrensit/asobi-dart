@@ -79,6 +79,13 @@ class AsobiRealtime {
   final StreamController<GameMessage> onGameMessage =
       StreamController.broadcast();
 
+  /// Fires on `module.event` - a named push from an extension module. The
+  /// whole payload is surfaced ([ModuleEvent.module], [ModuleEvent.event],
+  /// [ModuleEvent.data]); branch on [ModuleEvent.event]. Unlike `module.*`
+  /// twins, this frame has no `game.event` alias.
+  final StreamController<ModuleEvent> onModuleEvent =
+      StreamController.broadcast();
+
   AsobiRealtime(this._client);
 
   Future<void> connect({bool autoReconnect = true}) async {
@@ -384,6 +391,12 @@ class AsobiRealtime {
       case 'game.message':
       case 'module.message':
         onGameMessage.add(GameMessage.fromJson(msg.payload));
+      // A named extension push. Keyed on the outer `type` only, so an
+      // unfamiliar inner `event` still surfaces - the event name is data the
+      // app routes on, not a dispatch gate. No `game.event` twin, and no
+      // `module.` passthrough, so it must be enumerated here or it is dropped.
+      case 'module.event':
+        onModuleEvent.add(ModuleEvent.fromJson(msg.payload));
       case 'error':
         final reason = msg.payload['reason'] as String?;
         if (reason == 'invalid_token' || reason == 'session_revoked') {
