@@ -329,9 +329,11 @@ you, not one per connection. Two consequences:
 
 - You will see more than one `world.ack` per broadcast tick once you have moved,
   all of them arriving together on that tick.
-- `WorldAck.seq` can go backwards between consecutive acks. Moving away from a
-  zone does not unsubscribe you from it, so it keeps emitting its own frozen
-  high-water mark while the zone now taking your input emits a higher one.
+- `WorldAck.seq` can go backwards between consecutive acks. A one-step crossing
+  leaves the zone you came from inside your new ring, so it stays subscribed and
+  keeps emitting its own frozen high-water mark while the zone now taking your
+  input emits a higher one. A zone that does fall out of the ring is
+  unsubscribed and stops acking altogether.
 
 Nothing in the frame identifies the sending zone, so you cannot filter by
 origin. Keep a running maximum of the `seq` you have accepted and ignore any ack
