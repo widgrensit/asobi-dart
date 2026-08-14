@@ -188,7 +188,7 @@ class AsobiRealtime {
   /// world mode), `join_rate_limited` (the same bucket as [joinMatch] and
   /// [joinWorld]).
   ///
-  /// Requires asobi core v0.85.0 or later.
+  /// Requires asobi core v0.86.0 or later.
   Future<Map<String, dynamic>> findOrCreateMatch(String mode) =>
       _send('match.find_or_create', {'mode': mode});
 
