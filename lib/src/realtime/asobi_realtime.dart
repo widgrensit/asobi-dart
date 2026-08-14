@@ -184,9 +184,10 @@ class AsobiRealtime {
   ///
   /// The mode opts in with `quick_play`, which defaults to false for match
   /// modes; a mode that has not is refused with `quick_play_disabled`. Other
-  /// refusals: `match_capacity_reached` (node-wide cap), `wrong_mode_type` (a
-  /// world mode), `join_rate_limited` (the same bucket as [joinMatch] and
-  /// [joinWorld]).
+  /// refusals include `not_found` (the mode is unknown or unconfigured, so a
+  /// typo lands here first), `match_capacity_reached` (node-wide cap),
+  /// `wrong_mode_type` (a world mode) and `join_rate_limited` (the same bucket
+  /// as [joinMatch] and [joinWorld]).
   ///
   /// Requires asobi core v0.86.0 or later.
   Future<Map<String, dynamic>> findOrCreateMatch(String mode) =>
