@@ -183,7 +183,7 @@ That shape is deprecated and goes at the next protocol break. A `data` alongside
 other keys, or a `data` whose value is not a map, is forwarded verbatim -
 siblings are kept and nothing is discarded. Send your fields at the top level,
 as above. A payload that is not a map at all is answered with an `error` frame,
-reason `invalid_payload`.
+reason `invalid_payload`. Requires asobi core v0.84.1 or later.
 
 Pass `seq`, your own counter incremented once per input and never reused, to opt
 into acknowledgement. It goes on the wire as a top-level sibling of `payload`
@@ -293,15 +293,16 @@ void move(num dx, num dy) {
 asobi adds your player entity to its zone keyed by your player id, so
 `client.playerId` is the entity id to reconcile against.
 
-Prune in the ack handler, not the tick handler. On a broadcast tick where
-something changed, the server sends `world.tick` first and `world.ack` second;
-on a tick where nothing changed it sends the ack alone, with no `world.tick` in
-front of it.
+Prune in the ack handler, not the tick handler: `ack.seq` is the mark you prune
+against and only the ack carries it. Where both frames go out on the same
+broadcast tick, the server sends `world.tick` first and `world.ack` second. An
+ack that would not advance your mark is dropped before it reaches you, so a
+broadcast tick can bring a `world.tick` alone, or neither frame.
 
-Acks follow the broadcast tick, not each input: at most one every
-`broadcast_interval` simulation ticks (default 3). Set
-[`broadcast_interval`](https://asobi.dev/docs/world-server) to 1 for an ack
-every tick.
+Acks follow the broadcast tick, not each input: the world broadcasts every
+`broadcast_interval` simulation ticks (default 3), and acks ride that cadence.
+Set [`broadcast_interval`](https://asobi.dev/docs/world-server) to 1 to
+broadcast on every simulation tick.
 
 `seq` must be an integer from 0 to 2^53 - 1. On the native VM Dart's `int` is
 64-bit and holds far more than that, so an oversized value reaches the server
@@ -313,9 +314,8 @@ Out of range, it is the `seq` that is ignored, not the input. The server drops
 the `seq` and still queues and applies that input exactly as normal; it simply
 records no acknowledgement for it.
 
-Requires a server that emits `world.ack`, asobi core v0.84.1 or later; older
-deployments stay silent rather than erroring. On the client side `onWorldAck`
-first shipped in release
+Requires asobi core v0.84.1 or later. On the client side `onWorldAck` first
+shipped in release
 [v2.4.0](https://github.com/widgrensit/asobi-dart/releases/tag/v2.4.0).
 
 Frame reference:

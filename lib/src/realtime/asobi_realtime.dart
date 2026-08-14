@@ -49,9 +49,10 @@ class AsobiRealtime {
   /// [WorldAck.seq] only advances, so drop every buffered input at or below it
   /// and replay the rest. Requires asobi core v0.84.1 or later.
   ///
-  /// A broadcast tick that changed something sends `world.tick` first and this
-  /// second; a tick that changed nothing sends this alone, so prune here
-  /// rather than in the [onWorldTick] handler.
+  /// An ack that would not advance the mark is dropped before it reaches you,
+  /// so some broadcast ticks carry no ack. Prune here rather than in the
+  /// [onWorldTick] handler: only this frame carries the mark, and where both
+  /// go out on one tick `world.tick` arrives first.
   final StreamController<WorldAck> onWorldAck = StreamController.broadcast();
   final StreamController<WorldTerrainChunk> onWorldTerrain = StreamController.broadcast();
   final StreamController<Map<String, dynamic>> onWorldJoined = StreamController.broadcast();
