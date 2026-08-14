@@ -172,6 +172,27 @@ class AsobiRealtime {
   Future<void> joinMatch(String matchId) =>
       _send('match.join', {'match_id': matchId});
 
+  /// Finds a live match of [mode] with capacity or creates one, then
+  /// auto-joins. The match twin of [findOrCreateWorld]; it answers with
+  /// `match.joined`, the same reply [joinMatch] gets, so [onMatchJoined]
+  /// already covers it.
+  ///
+  /// Prefer it over [listMatches] then [joinMatch], which races: two clients
+  /// reading the same empty listing each create a match. This resolves
+  /// server-side and is serialized, so simultaneous callers converge on one
+  /// match.
+  ///
+  /// The mode opts in with `quick_play`, which defaults to false for match
+  /// modes; a mode that has not is refused with `quick_play_disabled`. Other
+  /// refusals include `not_found` (the mode is unknown or unconfigured, so a
+  /// typo lands here first), `match_capacity_reached` (node-wide cap),
+  /// `wrong_mode_type` (a world mode) and `join_rate_limited` (the same bucket
+  /// as [joinMatch] and [joinWorld]).
+  ///
+  /// Requires asobi core v0.86.0 or later.
+  Future<Map<String, dynamic>> findOrCreateMatch(String mode) =>
+      _send('match.find_or_create', {'mode': mode});
+
   /// Sends a `match.input` envelope. The payload shape is game-specific —
   /// each backend (sdk_demo_backend uses `{move_x, move_y}`, asobi_arena
   /// uses `{up, down, left, right, shoot, aim_x, aim_y}`, etc.) defines

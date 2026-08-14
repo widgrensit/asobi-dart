@@ -862,6 +862,37 @@ void main() {
     });
   });
 
+  group('match.find_or_create', () {
+    test('its match.joined reply resolves the pending call', () async {
+      final rt = AsobiClient('localhost').realtime;
+      final pending = rt.debugAwaitReply('c-1');
+      final joined = rt.onMatchJoined.stream.first;
+      rt.debugHandleMessage(jsonEncode({
+        'type': 'match.joined',
+        'cid': 'c-1',
+        'payload': {'match_id': 'm1', 'mode': 'arena'},
+      }));
+      expect((await pending)['match_id'], 'm1');
+      final pushed = await joined.timeout(const Duration(seconds: 1));
+      expect(pushed['mode'], 'arena');
+    });
+
+    test('a refusal carries the reason', () async {
+      final rt = AsobiClient('localhost').realtime;
+      final pending = rt.debugAwaitReply('c-2');
+      rt.debugHandleMessage(jsonEncode({
+        'type': 'error',
+        'cid': 'c-2',
+        'payload': {'reason': 'quick_play_disabled'},
+      }));
+      await expectLater(
+        pending,
+        throwsA(isA<AsobiException>()
+            .having((e) => e.message, 'message', 'quick_play_disabled')),
+      );
+    });
+  });
+
   group('InMemoryTokenStore', () {
     test('write/read/clear round-trips the refresh token', () async {
       final store = InMemoryTokenStore();
