@@ -257,6 +257,32 @@ class AsobiRealtime {
   void sendWorldInput(Map<String, dynamic> data, {int? seq}) =>
       _sendFireAndForget('world.input', data, seq: seq);
 
+  /// Asks the server to re-send a complete baseline for one zone.
+  ///
+  /// Call this when [WorldTick.frameSeq] for a zone jumps by more than one,
+  /// which means frames were lost. The reply is an ordinary `world.tick` for
+  /// that zone with [WorldTick.kf] set, listing every entity the zone holds:
+  /// replace that zone's entities with it rather than merging.
+  ///
+  /// [zone] is [WorldTick.zone] verbatim, echoed back. One zone per call, not
+  /// the whole interest ring - the ring is nine zones by default, so asking for
+  /// all of them turns a small request into nine full baselines, and you already
+  /// know which zone gapped because the sequence is per zone.
+  ///
+  /// Rate limited server-side to twice per ten seconds per player, so ask once
+  /// per gap and wait for the keyframe rather than retrying. Requires asobi core
+  /// v0.89.0 or later; an older server answers `unknown_type`.
+  ///
+  /// This SDK does not do it for you on purpose. It hands you [WorldTick]
+  /// untouched and holds no entity state of its own, so it cannot know whether a
+  /// gap cost you anything - only your own model can. Deciding is yours.
+  void resyncWorldZone(List<int> zone) {
+    if (zone.length < 2) return;
+    _sendFireAndForget('world.resync', {
+      'zone': [zone[0], zone[1]],
+    });
+  }
+
   /// Lists running worlds, optionally filtered by mode and capacity.
   Future<Map<String, dynamic>> listWorlds({String? mode, bool? hasCapacity}) =>
       _send('world.list', {

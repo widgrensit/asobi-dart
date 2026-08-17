@@ -323,7 +323,46 @@ class WorldTick {
   final int tick;
   final List<EntityDelta> updates;
 
-  WorldTick({required this.tick, required this.updates});
+  /// Which zone this frame came from, as `[x, y]`, or null from a server
+  /// predating asobi v0.89.0 and from `match.state`, which has no zones.
+  ///
+  /// **Key your entities on this.** A player is subscribed to an interest ring
+  /// of several zones at once, each an independent server process, and frames
+  /// from two of them have no order relative to each other. A crossing emits
+  /// `op: "r"` from the zone being left and `op: "a"` from the zone being
+  /// entered, so merging every zone into one entity map is last-writer-wins -
+  /// and when the remove lands last the entity is gone for good, because the
+  /// server will not re-add something already in its own baseline. Keeping a
+  /// map per zone, or recording which zone owns each id, makes that unreachable.
+  final List<int>? zone;
+
+  /// How many frames this zone has broadcast, or null from an older server.
+  ///
+  /// Gaps are what this is for: unlike [tick] it never skips, so a jump means
+  /// frames were lost. [tick] skips on the server's `broadcast_interval` and is
+  /// suppressed entirely on a tick that changed nothing, so a gap in it is
+  /// ambiguous and cannot be used this way.
+  ///
+  /// Note it cannot see the crossing problem above. Both zones' sequences stay
+  /// perfectly contiguous through an inverted remove/add pair, so this is no
+  /// substitute for keying on [zone].
+  final int? frameSeq;
+
+  /// True when this frame is a complete baseline for its [zone] rather than an
+  /// incremental delta: replace that zone's entities with these, do not merge.
+  ///
+  /// Adopt it unconditionally, including when [frameSeq] moves BACKWARDS. A zone
+  /// restart resets the sequence while the zone's identity is unchanged, so
+  /// rejecting a lower value here means rejecting the one frame that repairs it.
+  final bool kf;
+
+  WorldTick({
+    required this.tick,
+    required this.updates,
+    this.zone,
+    this.frameSeq,
+    this.kf = false,
+  });
 
   factory WorldTick.fromJson(Map<String, dynamic> json) => WorldTick(
         tick: (json['tick'] as num?)?.toInt() ?? 0,
@@ -331,7 +370,20 @@ class WorldTick {
                 ?.map((u) => EntityDelta.fromJson(u as Map<String, dynamic>))
                 .toList() ??
             [],
+        zone: _zoneFrom(json['zone']),
+        frameSeq: (json['frame_seq'] as num?)?.toInt(),
+        kf: json['kf'] == true,
       );
+
+  /// Null unless the value is a real two-element numeric pair. A malformed
+  /// `zone` must read as absent rather than throw in a stream handler, where a
+  /// raise would take the subscription down with it.
+  static List<int>? _zoneFrom(dynamic value) {
+    if (value is! List || value.length < 2) return null;
+    final x = value[0], y = value[1];
+    if (x is! num || y is! num) return null;
+    return [x.toInt(), y.toInt()];
+  }
 }
 
 /// `world.ack` - the server's acknowledgement of the highest `world.input`
