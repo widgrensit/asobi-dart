@@ -348,6 +348,29 @@ class _MyAppState extends State<MyApp> {
 
 For Flame games, use [flame_asobi](https://github.com/widgrensit/flame_asobi) which provides Flame-native components and mixins on top of this SDK.
 
+## Binary `world.tick`
+
+Ask for the binary encoding and `world.tick` arrives as a WebSocket binary frame
+in roughly a fifth of the bytes, and cheaper to decode - `ByteData` reads are
+single instructions where the JSON parser has to chew nearly four kilobytes of
+text including forty UUID strings and a hundred and sixty float literals.
+
+```dart
+client.realtime.requestBinaryWire = true;
+await client.realtime.connect();
+```
+
+**Nothing else changes.** The decoder maps the wire's compact 2-byte entity slots
+back to entity ids before anything reaches you, so `onWorldTick` carries the same
+`WorldTick` either way and every listener you have already written keeps working.
+Only `world.tick` is affected; everything else stays JSON text on both wires.
+
+Requires the server to have `binary_wire` switched on. If it does not, you
+silently stay on text - `client.realtime.wire` reads `'json'` or `'binary'` once
+`onConnected` has fired, so read it rather than assume. The same fallback happens
+per frame for anything the server cannot encode as binary, such as an entity
+field holding a list.
+
 ## Wire protocol
 
 See the [WebSocket protocol guide](https://github.com/widgrensit/asobi/blob/main/guides/websocket-protocol.md).
