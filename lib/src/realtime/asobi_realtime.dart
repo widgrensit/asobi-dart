@@ -8,6 +8,7 @@ import '../http_client.dart';
 import '../models/notification_models.dart';
 import '../models/realtime_models.dart';
 import '../models/social_models.dart';
+import 'asobi_wire.dart';
 
 class AsobiRealtime {
   final AsobiClient _client;
@@ -15,6 +16,24 @@ class AsobiRealtime {
   StreamSubscription? _subscription;
   int _cidCounter = 0;
   final Map<String, Completer<Map<String, dynamic>>> _pending = {};
+  final AsobiWire _wire = AsobiWire();
+
+  /// Ask the server for the binary `world.tick` encoding, roughly a fifth of the
+  /// bytes and cheaper to decode than JSON.
+  ///
+  /// Set it before [connect]. Nothing else changes: the decoder maps the wire's
+  /// compact 2-byte entity slots back to entity ids, so [onWorldTick] carries the
+  /// same [WorldTick] either way and every existing handler keeps working. Only
+  /// `world.tick` is affected - everything else stays JSON text on both wires.
+  ///
+  /// A server with the binary wire switched off answers `json` and you silently
+  /// stay on text, so read [wire] after [onConnected] rather than assuming the
+  /// request was honoured.
+  bool requestBinaryWire = false;
+
+  /// The wire the server actually granted: `'json'` or `'binary'`. Valid once
+  /// [onConnected] has fired.
+  String wire = 'json';
 
   bool _autoReconnect = true;
   bool _authExpired = false;
@@ -125,7 +144,16 @@ class AsobiRealtime {
     await _channel!.ready;
 
     _subscription = _channel!.stream.listen(
-      (data) => _handleMessage(data as String),
+      // Only world.tick ever arrives as binary; everything else is JSON text on
+      // both wires. The blind `data as String` this replaces threw on a binary
+      // frame and took the subscription down with it.
+      (data) {
+        if (data is String) {
+          _handleMessage(data);
+        } else if (data is List<int>) {
+          _handleBinaryTick(data);
+        }
+      },
       onDone: () {
         _channel = null;
         onDisconnected.add('closed');
@@ -138,7 +166,10 @@ class AsobiRealtime {
       },
     );
 
-    await _send('session.connect', {'token': _client.accessToken});
+    await _send('session.connect', {
+      'token': _client.accessToken,
+      if (requestBinaryWire) 'wire': 'binary',
+    });
     _reconnectAttempts = 0;
   }
 
@@ -312,6 +343,10 @@ class AsobiRealtime {
       completer.completeError(AsobiException(-1, 'Disconnected'));
     }
     _pending.clear();
+    // Slot bindings are established by the adds THIS connection received, so
+    // carrying them across a reconnect would attach stale ids to slots the server
+    // has since handed to different entities.
+    _wire.reset();
   }
 
   /// Call an extension's RPC method and await its reply.
@@ -366,6 +401,21 @@ class AsobiRealtime {
         'payload': payload,
       });
 
+  /// A binary frame is a `world.tick` and nothing else. Decoded into the same
+  /// payload the JSON path produces, so it reaches [onWorldTick] as the same
+  /// [WorldTick] and a game never learns which wire carried it.
+  void _handleBinaryTick(List<int> bytes) {
+    final payload = _wire.decode(bytes);
+    if (payload == null) {
+      // Off the network and unreadable. Losing one frame costs a gap that
+      // frame_seq detects and a resync repairs; guessing at it would corrupt the
+      // caller's entity map with no way to notice.
+      onError.add(RealtimeError(message: 'malformed binary world.tick frame'));
+      return;
+    }
+    onWorldTick.add(WorldTick.fromJson(payload));
+  }
+
   void _handleMessage(String raw) {
     final json = jsonDecode(raw) as Map<String, dynamic>;
     final msg = WsMessage.fromJson(json);
@@ -396,6 +446,8 @@ class AsobiRealtime {
 
     switch (msg.type) {
       case 'session.connected':
+        // Read what was granted rather than assuming the request was honoured.
+        wire = msg.payload['wire'] as String? ?? 'json';
         onConnected.add(null);
       case 'session.heartbeat':
         onHeartbeat.add(msg.payload);
