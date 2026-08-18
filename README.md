@@ -351,7 +351,7 @@ For Flame games, use [flame_asobi](https://github.com/widgrensit/flame_asobi) wh
 ## Binary `world.tick`
 
 Ask for the binary encoding and `world.tick` arrives as a WebSocket binary frame
-in roughly a fifth of the bytes, and cheaper to decode - `ByteData` reads are
+in about a quarter of the bytes, and cheaper to decode - `ByteData` reads are
 single instructions where the JSON parser has to chew nearly four kilobytes of
 text including forty UUID strings and a hundred and sixty float literals.
 

@@ -18,7 +18,7 @@ class AsobiRealtime {
   final Map<String, Completer<Map<String, dynamic>>> _pending = {};
   final AsobiWire _wire = AsobiWire();
 
-  /// Ask the server for the binary `world.tick` encoding, roughly a fifth of the
+  /// Ask the server for the binary `world.tick` encoding, about a quarter of the
   /// bytes and cheaper to decode than JSON.
   ///
   /// Set it before [connect]. Nothing else changes: the decoder maps the wire's
