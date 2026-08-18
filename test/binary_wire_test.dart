@@ -63,6 +63,10 @@ void main() {
         if (records[i].containsKey('id')) {
           expect(updates[i]['id'], records[i]['id']);
         }
+        // The generation. A decoder that skipped the byte shifts every later
+        // offset and fails loudly; one that read it from the wrong place would
+        // not, so pin the value.
+        expect(updates[i]['gen'], records[i]['gen']);
         final fields = (records[i]['fields'] as Map<String, dynamic>?) ?? {};
         fields.forEach((key, want) {
           final have = updates[i][key];

@@ -21,7 +21,7 @@ import 'dart:typed_data';
 /// frame    Kind:8, ZX:32, ZY:32, FrameSeq:64, Kf:8, Tick:64,
 ///          DictLen:8, Dict, RecCount:16, Records
 /// dict     for each name: Len:8, Name/utf8            (at most 32 names)
-/// record   Op:8, Slot:16, [IdLen:8, Id/utf8]?, FieldCount:8, Fields
+/// record   Op:8, Slot:16, Gen:8, [IdLen:8, Id/utf8]?, FieldCount:8, Fields
 /// field    Type:3, Idx:5, Value                       (one header byte)
 /// ```
 class AsobiWire {
@@ -101,14 +101,18 @@ class AsobiWire {
     final updates = <Map<String, dynamic>>[];
 
     for (var r = 0; r < recCount; r++) {
-      if (pos + 3 > bytes.length) return null;
+      if (pos + 4 > bytes.length) return null;
       final opByte = view.getUint8(pos);
       if (opByte >= _ops.length) return null;
       final op = _ops[opByte];
       final slot = view.getUint16(pos + 1, Endian.little);
-      pos += 3;
+      // The slot's generation, advancing every time it is rebound to a different
+      // entity. Redundant on this ordered, reliable wire and carried anyway, so a
+      // client also running the datagram plane keeps ONE slot table for both.
+      final gen = view.getUint8(pos + 3);
+      pos += 4;
 
-      final record = <String, dynamic>{'op': op};
+      final record = <String, dynamic>{'op': op, 'gen': gen};
       if (op == 'a') {
         if (pos >= bytes.length) return null;
         final idLen = view.getUint8(pos);
