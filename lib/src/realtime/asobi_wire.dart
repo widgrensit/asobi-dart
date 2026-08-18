@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 /// Decoder for asobi's binary `world.tick` frame.
 ///
-/// Same information as the JSON frame in roughly a fifth of the bytes, and
+/// Same information as the JSON frame in about a quarter of the bytes, and
 /// cheaper to decode: `ByteData` reads are single instructions where the JSON
 /// parser has to chew nearly four kilobytes of text including forty UUID strings
 /// and a hundred and sixty float literals.
