@@ -18,6 +18,7 @@ export 'src/api/iap.dart';
 export 'src/api/votes.dart';
 export 'src/api/worlds.dart';
 export 'src/realtime/asobi_realtime.dart';
+export 'src/realtime/asobi_wire.dart';
 export 'src/models/auth_models.dart';
 export 'src/models/iap_models.dart';
 export 'src/models/player_models.dart';
